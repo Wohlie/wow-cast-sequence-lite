@@ -1,0 +1,6 @@
+## Interface: 30300
+## Title: CastSequenceLite
+## Author: Wohlie
+## Version: 1.0.0
+CastSequenceLite_Helpers.lua
+CastSequenceLite_Final.lua
