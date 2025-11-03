@@ -17,99 +17,71 @@ CSL.Config = {
     buttonSize = 36,
     initialPosition = { "CENTER", UIParent, "CENTER", 0, 0 },
     showButton = true,
-    defaultIcon = "Interface\\Icons\\INV_Misc_QuestionMark",
     buttonFrameStrata = "MEDIUM",
+    macroIconIndex = 1,
 }
 
--- Default cast command rotation (can be replaced via slash commands)
-CSL.DefaultRotation = {
-    preCastCommand = "/startattack", -- Command executed before each spell cast
-    castCommands = {
-        "/cast Sturmangriff",
-        "/cast Siegesrausch",
-        "/cast Verwunden",
-        "/cast Heldenhafter Stoß"
+-- Default cast command rotations (can be replaced via slash commands)
+CSL.DefaultRotations = {
+    ["Warrior"] = {
+        preCastCommand = "/startattack",
+        castCommands = {
+            "/cast Sturmangriff",
+            "/cast Siegesrausch",
+            "/cast Verwunden",
+            "/cast Heldenhafter Stoß"
+        }
+    },
+    ["WarriorAoE"] = {
+        preCastCommand = "/startattack",
+        castCommands = {
+            "/cast Donnerknall",
+            "/cast Wirbelwind",
+            "/cast Spalten"
+        }
     }
 }
 
--- Active rotation
-CSL.ActiveRotation = {
-    preCastCommand = nil,
-    castCommands = {},
-    icons = {},
-    spellNames = {}
-}
+-- Runtime state for all rotations (keyed by rotation name)
+CSL.Rotations = {}
 
--- Store addon frame elements
 CSL.UI = {}
 
--- Cache and return the spell name extracted from a cast command
-function CSL:GetSpellName(castCommand)
-    if not castCommand then
-        return ""
+-- Initialize a single rotation from defaults
+function CSL:InitializeRotation(rotationName, rotationConfig)
+    local rotation = {
+        name = rotationName,
+        preCastCommand = rotationConfig.preCastCommand,
+        castCommands = {},
+        currentStep = 1
+    }
+
+    -- Copy cast commands
+    for i, castCommand in ipairs(rotationConfig.castCommands) do
+        table.insert(rotation.castCommands, castCommand)
     end
 
-    local cachedName = self.ActiveRotation.spellNames[castCommand]
-    if cachedName ~= nil then
-        return cachedName
+    -- Precompute spell names (icons resolved via helper cache)
+    for _, castCommand in ipairs(rotation.castCommands) do
+        CSL.Helpers.GetSpellName(castCommand)
     end
 
-    local spellName = CSL.Helpers.ExtractSpellName(castCommand)
-    self.ActiveRotation.spellNames[castCommand] = spellName
-    return spellName
-end
-
--- Resolve an icon texture for the given cast command
-function CSL:GetIconForSpell(castCommand)
-    local spellName = self:GetSpellName(castCommand)
-    if spellName == "" then
-        return self.Config.defaultIcon
-    end
-
-    local _, _, iconTexture = GetSpellInfo(spellName)
-    if iconTexture then
-        return iconTexture
-    end
-
-    return self.Config.defaultIcon
-end
-
--- Ensure an icon is cached for the spell command and return it
-function CSL:EnsureIcon(castCommand)
-    if not castCommand then
-        return self.Config.defaultIcon
-    end
-
-    local icon = self.ActiveRotation.icons[castCommand]
-    if not icon then
-        icon = self:GetIconForSpell(castCommand)
-        self.ActiveRotation.icons[castCommand] = icon
-    end
-
-    return icon
+    self.Rotations[rotationName] = rotation
+    return rotation
 end
 
 -- Initialize the addon
 function CSL:Initialize()
-    -- Copy default rotation to active rotation
-    for i, castCommand in ipairs(self.DefaultRotation.castCommands) do
-        table.insert(self.ActiveRotation.castCommands, castCommand)
+    -- Initialize all default rotations
+    for rotationName, rotationConfig in pairs(self.DefaultRotations) do
+        self:InitializeRotation(rotationName, rotationConfig)
     end
 
-    for _, castCommand in ipairs(self.ActiveRotation.castCommands) do
-        self:EnsureIcon(castCommand)
+    -- Create UI elements and macros for each rotation
+    for rotationName, rotation in pairs(self.Rotations) do
+        self:CreateButton(rotation)
+        self:CreateOrUpdateMacro(rotation)
     end
-
-    -- Copy preCastCommand if defined
-    if self.DefaultRotation.preCastCommand then
-        self.ActiveRotation.preCastCommand = self.DefaultRotation.preCastCommand
-    end
-
-    -- Create UI elements
-    self:CreateButton()
-
-    -- Create macro
-    self:CreateOrUpdateMacro()
 
     -- Register slash commands
     self:RegisterSlashCommands()
@@ -119,18 +91,25 @@ function CSL:Initialize()
 end
 
 -- Create the main sequence button
-function CSL:CreateButton()
+function CSL:CreateButton(rotation)
+    local buttonName = "CSLButton_" .. rotation.name
+    local macroName = "CSL_" .. rotation.name
+
     -- Create button with secure templates
-    local btn = CreateFrame("Button", "CSLButton", UIParent, "SecureActionButtonTemplate,SecureHandlerBaseTemplate")
+    local btn = CreateFrame("Button", buttonName, UIParent, "SecureActionButtonTemplate,SecureHandlerBaseTemplate")
     btn:SetSize(self.Config.buttonSize, self.Config.buttonSize)
     btn:SetPoint(unpack(self.Config.initialPosition))
     btn:SetFrameStrata(self.Config.buttonFrameStrata)
+
+    -- Store rotation reference on button
+    btn.rotationName = rotation.name
+    btn.macroName = macroName
 
     -- Make button draggable
     btn:SetMovable(true)
     btn:RegisterForDrag("LeftButton")
     btn:SetScript("OnDragStart", function(self)
-        local macroIdx = GetMacroIndexByName(CSL.MACRO_NAME)
+        local macroIdx = GetMacroIndexByName(self.macroName)
         if macroIdx and macroIdx > 0 then
             PickupMacro(macroIdx)
         end
@@ -142,24 +121,24 @@ function CSL:CreateButton()
     -- Create icon texture
     local icon = btn:CreateTexture(nil, "BACKGROUND")
     icon:SetAllPoints(btn)
-    icon:SetTexture(self.Config.defaultIcon)
+    icon:SetTexture(CSL.Helpers.DEFAULT_ICON)
     btn.icon = icon
 
     -- Set as macro button
     btn:SetAttribute("type", "macro")
     btn:SetAttribute("step", 1)
-    btn:SetAttribute("numCastCommands", #self.ActiveRotation.castCommands)
+    btn:SetAttribute("numCastCommands", #rotation.castCommands)
 
     -- Set initial macrotext
-    local initialCastCommand = self.ActiveRotation.castCommands[1]
-    local initialMacroText = self:BuildMacroText(initialCastCommand)
+    local initialCastCommand = rotation.castCommands[1]
+    local initialMacroText = self:BuildMacroText(rotation, initialCastCommand)
     btn:SetAttribute("macrotext", initialMacroText)
 
     -- Store spell and icon attributes
-    self:UpdateButtonAttributes(btn)
+    self:UpdateButtonAttributes(rotation, btn)
 
     -- Add secure click handler
-    self:SetupSecureClickHandler(btn)
+    self:SetupSecureClickHandler(rotation, btn)
 
     -- Add PostClick handler
     btn:SetScript("PostClick", function(self)
@@ -168,9 +147,9 @@ function CSL:CreateButton()
     end)
 
     -- Set initial icon
-    if #self.ActiveRotation.castCommands > 0 then
-        local initialCastCommand = self.ActiveRotation.castCommands[1]
-        icon:SetTexture(self:EnsureIcon(initialCastCommand))
+    if #rotation.castCommands > 0 then
+        local initialCastCommand = rotation.castCommands[1]
+        icon:SetTexture(CSL.Helpers.GetIconForSpell(initialCastCommand))
     end
 
     -- Add button visuals
@@ -179,7 +158,7 @@ function CSL:CreateButton()
     btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 
     -- Store in UI table
-    self.UI.Button = btn
+    rotation.button = btn
 
     -- Initial rendering
     CSL:UpdateButtonIcon(btn)
@@ -194,25 +173,25 @@ function CSL:CreateButton()
 end
 
 -- Update button attributes for current rotation
-function CSL:UpdateButtonAttributes(btn)
-    local button = btn or self.UI.Button
+function CSL:UpdateButtonAttributes(rotation, btn)
+    local button = btn
     if not button then
         return
     end
 
-    button:SetAttribute("numCastCommands", #self.ActiveRotation.castCommands)
+    button:SetAttribute("numCastCommands", #rotation.castCommands)
 
-    for i, castCommand in ipairs(self.ActiveRotation.castCommands) do
-        local icon = self:EnsureIcon(castCommand)
+    for i, castCommand in ipairs(rotation.castCommands) do
+        local icon = CSL.Helpers.GetIconForSpell(castCommand)
         button:SetAttribute("castCommand" .. i, castCommand)
-        button:SetAttribute("spellName" .. i, self:GetSpellName(castCommand) or "")
+        button:SetAttribute("spellName" .. i, CSL.Helpers.GetSpellName(castCommand) or "")
         button:SetAttribute("icon" .. i, icon)
     end
 end
 
 -- Set up the secure click handler
-function CSL:SetupSecureClickHandler(btn)
-    local button = btn or self.UI.Button
+function CSL:SetupSecureClickHandler(rotation, btn)
+    local button = btn
     if not button then
         return
     end
@@ -225,7 +204,7 @@ function CSL:SetupSecureClickHandler(btn)
         local castCommand = self:GetAttribute('castCommand' .. step)
         if castCommand then
             local spellName = self:GetAttribute('spellName' .. step) or ""
-            self:SetAttribute('macrotext', "]] .. self:GetMacroTextTemplate() .. [[")
+            self:SetAttribute('macrotext', "]] .. self:GetMacroTextTemplate(rotation) .. [[")
         end
 
         -- Increment step for NEXT click
@@ -240,14 +219,14 @@ function CSL:SetupSecureClickHandler(btn)
 end
 
 -- Build macro text for a spell
-function CSL:BuildMacroText(castCommand)
+function CSL:BuildMacroText(rotation, castCommand)
     -- Extract spell name from "/cast SpellName" for #showtooltip
-    local spellName = self:GetSpellName(castCommand)
+    local spellName = CSL.Helpers.GetSpellName(castCommand)
     local text = "#showtooltip " .. spellName
 
     -- Add pre-cast command if defined
-    if self.ActiveRotation.preCastCommand and self.ActiveRotation.preCastCommand ~= "" then
-        text = text .. "\n" .. self.ActiveRotation.preCastCommand
+    if rotation.preCastCommand and rotation.preCastCommand ~= "" then
+        text = text .. "\n" .. rotation.preCastCommand
     end
 
     text = text .. "\n" .. castCommand
@@ -255,14 +234,14 @@ function CSL:BuildMacroText(castCommand)
 end
 
 -- Get macro text template for secure handler
-function CSL:GetMacroTextTemplate()
+function CSL:GetMacroTextTemplate(rotation)
     -- Extract spell name from "/cast SpellName" for #showtooltip
     -- Note: In secure code we need to inline the extraction logic
     local template = "#showtooltip \" .. spellName .. \""
 
     -- Add pre-cast command if defined
-    if self.ActiveRotation.preCastCommand and self.ActiveRotation.preCastCommand ~= "" then
-        template = template .. "\\n" .. self.ActiveRotation.preCastCommand
+    if rotation.preCastCommand and rotation.preCastCommand ~= "" then
+        template = template .. "\\n" .. rotation.preCastCommand
     end
 
     template = template .. "\\n\" .. castCommand .. \""
@@ -271,7 +250,7 @@ end
 
 -- Update button icon
 function CSL:UpdateButtonIcon(button)
-    local btn = button or self.UI.Button
+    local btn = button
     if not btn or not btn.icon then
         return
     end
@@ -286,8 +265,13 @@ end
 
 -- Update macro spell icon (combat-safe)
 function CSL:UpdateMacroSpell(button)
-    local btn = button or self.UI.Button
-    if not btn then
+    local btn = button
+    if not btn or not btn.rotationName then
+        return
+    end
+
+    local rotation = self.Rotations[btn.rotationName]
+    if not rotation then
         return
     end
 
@@ -297,17 +281,18 @@ function CSL:UpdateMacroSpell(button)
     if currentCastCommand then
         -- SetMacroSpell works even in combat!
         -- Extract spell name from "/cast SpellName"
-        local spellName = self:GetSpellName(currentCastCommand)
-        SetMacroSpell(self.MACRO_NAME, spellName)
+        local spellName = CSL.Helpers.GetSpellName(currentCastCommand)
+        SetMacroSpell(btn.macroName, spellName)
     end
 end
 
 -- Create or update the macro
-function CSL:CreateOrUpdateMacro()
-    local macroIndex = GetMacroIndexByName(self.MACRO_NAME)
-    local firstCastCommand = #self.ActiveRotation.castCommands > 0 and self.ActiveRotation.castCommands[1] or nil
-    local iconToUse = firstCastCommand and self:EnsureIcon(firstCastCommand) or self.Config.defaultIcon
-    local macroBody = "#showtooltip\n/click CSLButton"
+function CSL:CreateOrUpdateMacro(rotation)
+    local macroName = "CSL_" .. rotation.name
+    local buttonName = "CSLButton_" .. rotation.name
+    local macroIndex = GetMacroIndexByName(macroName)
+    local macroIconIndex = self.Config.macroIconIndex or 1
+    local macroBody = "#showtooltip\n/click " .. buttonName
 
     if macroIndex == 0 then
         -- Macro doesn't exist, create it
@@ -315,14 +300,14 @@ function CSL:CreateOrUpdateMacro()
 
         if numCharacterMacros < self.MAX_CHARACTER_MACROS then
             -- Create with the first cast command's icon (1 means character-specific macro)
-            CreateMacro(self.MACRO_NAME, iconToUse, macroBody, 1)
-            print("|cFF00FF00Macro '" .. self.MACRO_NAME .. "' created!|r")
+            CreateMacro(macroName, macroIconIndex, macroBody, 1)
+            print("|cFF00FF00Macro '" .. macroName .. "' created!|r")
         else
             print("|cFFFF0000Too many macros! Delete some and /reload|r")
         end
     else
         -- Macro exists, update it with current icon
-        EditMacro(macroIndex, nil, iconToUse, macroBody)
+        EditMacro(macroIndex, nil, macroIconIndex, macroBody)
     end
 end
 
@@ -336,31 +321,27 @@ function CSL:RegisterSlashCommands()
         cmd = cmd:lower()
 
         if cmd == "macro" or cmd == "" then
-            -- Show macro frame and select our macro
+            -- Show macro frame
             if not MacroFrame or not MacroFrame:IsShown() then
                 ShowMacroFrame()
             end
-
-            local macroIdx = GetMacroIndexByName(self.MACRO_NAME)
-            if macroIdx > 0 then
-                -- Try to select the macro
-                if MacroFrame and MacroFrame.MacroSelector then
-                    MacroFrame.MacroSelector:SelectMacro(macroIdx)
-                end
-                print("|cFF00FF00Drag 'CastSeqLite' macro to your action bar!|r")
-            end
+            print("|cFF00FF00Drag 'CSL_<RotationName>' macros to your action bar!|r")
         elseif cmd == "show" then
             self.Config.showButton = true
-            if self.UI.Button then
-                self.UI.Button:Show()
+            for rotationName, rotation in pairs(self.Rotations) do
+                if rotation.button then
+                    rotation.button:Show()
+                end
             end
-            print("|cFF00FF00Button shown|r")
+            print("|cFF00FF00All buttons shown|r")
         elseif cmd == "hide" then
             self.Config.showButton = false
-            if self.UI.Button then
-                self.UI.Button:Hide()
+            for rotationName, rotation in pairs(self.Rotations) do
+                if rotation.button then
+                    rotation.button:Hide()
+                end
             end
-            print("|cFF00FF00Button hidden|r")
+            print("|cFF00FF00All buttons hidden|r")
         elseif cmd == "help" then
             self:PrintHelp()
         end
@@ -379,15 +360,18 @@ end
 -- Print welcome message
 function CSL:PrintWelcome()
     print("|cFF00FF00" .. addonName .. " v" .. self.VERSION .. " loaded!|r")
-    print("|cFFFFD700Current rotation:|r")
+    print("|cFFFFD700Available rotations:|r")
 
-    for i, castCommand in ipairs(self.ActiveRotation.castCommands) do
-        print("|cFFFFD700  " .. i .. ". " .. castCommand .. "|r")
+    for rotationName, rotation in pairs(self.Rotations) do
+        print("|cFFFFD700  " .. rotationName .. ":|r")
+        for i, castCommand in ipairs(rotation.castCommands) do
+            print("|cFFFFD700    " .. i .. ". " .. castCommand .. "|r")
+        end
     end
 
     print("|cFFFFFF00Type /csl for options or /macro to open macro UI|r")
-    print("|cFFFFFF00Find '" .. self.MACRO_NAME .. "' macro and drag it to your action bar!|r")
-    print("|cFF00FF00The macro icon will change with each spell in rotation!|r")
+    print("|cFFFFFF00Find 'CSL_<RotationName>' macros and drag them to your action bar!|r")
+    print("|cFF00FF00The macro icons will change with each spell in rotation!|r")
 end
 
 -- Event frame setup
