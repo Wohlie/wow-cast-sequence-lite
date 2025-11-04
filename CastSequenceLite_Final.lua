@@ -8,7 +8,10 @@ _G["CastSequenceLite"] = CSL
 
 -- Constants
 CSL.VERSION = "1.0.0"
+CSL.MACRO_PREFIX = "CSL_"
 CSL.MACRO_NAME = "CastSeqLite"
+CSL.MAX_MACRO_NAME_LENGTH = 16
+CSL.MAX_ROTATION_NAME_LENGTH = CSL.MAX_MACRO_NAME_LENGTH - #CSL.MACRO_PREFIX
 CSL.MAX_CHARACTER_MACROS = MAX_CHARACTER_MACROS or 18
 CSL.MAX_ACCOUNT_MACROS = MAX_ACCOUNT_MACROS or 120
 
@@ -68,6 +71,31 @@ function CSL:InitializeRotation(rotationName, rotationConfig)
 
     self.Rotations[rotationName] = rotation
     return rotation
+end
+
+-- Delete a rotation
+function CSL:DeleteRotation(rotationName)
+    local rotation = self.Rotations[rotationName]
+    if not rotation then
+        return
+    end
+
+    -- Delete macro
+    local macroName = "CSL_" .. rotationName
+    local macroIndex = GetMacroIndexByName(macroName)
+    if macroIndex > 0 then
+        DeleteMacro(macroIndex)
+        print("|cFF00FF00Macro '" .. macroName .. "' deleted!|r")
+    end
+
+    -- Hide and cleanup button
+    if rotation.button then
+        rotation.button:Hide()
+        rotation.button:SetParent(nil)
+    end
+
+    -- Remove from rotations table
+    self.Rotations[rotationName] = nil
 end
 
 -- Initialize the addon
@@ -320,7 +348,10 @@ function CSL:RegisterSlashCommands()
         local cmd, arg = strsplit(" ", msg, 2)
         cmd = cmd:lower()
 
-        if cmd == "macro" or cmd == "" then
+        if cmd == "" or cmd == "ui" then
+            -- Show management UI
+            CSL.UIManager:ToggleManagementFrame()
+        elseif cmd == "macro" then
             -- Show macro frame
             if not MacroFrame or not MacroFrame:IsShown() then
                 ShowMacroFrame()
@@ -351,7 +382,9 @@ end
 -- Print help information
 function CSL:PrintHelp()
     print("|cFF00FF00CastSequenceLite v" .. self.VERSION .. " commands:|r")
-    print("|cFFFFFF00/csl|r - Open macro UI")
+    print("|cFFFFFF00/csl|r - Open rotation management UI")
+    print("|cFFFFFF00/csl ui|r - Open rotation management UI")
+    print("|cFFFFFF00/csl macro|r - Open macro frame")
     print("|cFFFFFF00/csl show|r - Show button")
     print("|cFFFFFF00/csl hide|r - Hide button")
     print("|cFFFFFF00/csl help|r - Show this help")
