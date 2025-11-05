@@ -196,6 +196,7 @@ function CSL.UIManager:CreateManagementFrame()
 
     self.ManagementFrame = frame
     self:RefreshRotationList()
+    self:RegisterCombatWatcher()
 
     frame.frame:Hide()
     return frame
@@ -545,7 +546,15 @@ end
 
 -- Save rotation
 function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
+    if InCombatLockdown() then
+        print("|cFFFF0000Cannot save rotations while in combat. Try again after combat.|r")
+        return
+    end
+
+    self:RegisterCombatWatcher()
+
     local rotationName = nameInput:GetText():trim()
+    local preCastCommand = preCastInput:GetText() or ""
     local commandsText = commandsInput:GetText()
 
     local editorGroup = self.ManagementFrame.editorGroup
@@ -614,6 +623,11 @@ end
 
 -- Delete rotation
 function CSL.UIManager:DeleteRotation()
+    if InCombatLockdown() then
+        print("|cFFFF0000Cannot delete rotations while in combat. Try again after combat.|r")
+        return
+    end
+
     local frame = self.ManagementFrame
     if not frame or not frame.editorGroup then
         return
@@ -624,6 +638,59 @@ function CSL.UIManager:DeleteRotation()
 
     -- Show confirmation dialog
     StaticPopup_Show("CSL_CONFIRM_DELETE", rotationName, nil, rotationName)
+end
+
+function CSL.UIManager:RegisterCombatWatcher()
+    if self._combatWatcher then
+        return
+    end
+
+    local watcher = CreateFrame("Frame")
+    watcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+    watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+    watcher:SetScript("OnEvent", function(_, event)
+        if event == "PLAYER_REGEN_DISABLED" then
+            CSL.UIManager:OnCombatStart()
+        else
+            CSL.UIManager:OnCombatEnd()
+        end
+    end)
+
+    self._combatWatcher = watcher
+end
+
+function CSL.UIManager:OnCombatStart()
+    local frame = self.ManagementFrame
+    if not frame or not frame.frame or not frame.frame:IsShown() then
+        return
+    end
+
+    frame._restoreAfterCombat = true
+    if frame.escFrame and frame.escFrame:IsShown() then
+        frame.escFrame:Hide()
+    end
+
+    frame:Hide()
+    print("|cFFFFD700CastSequenceLite hidden during combat. It will return after combat ends.|r")
+end
+
+function CSL.UIManager:OnCombatEnd()
+    local frame = self.ManagementFrame
+    if not frame or not frame._restoreAfterCombat then
+        return
+    end
+
+    frame._restoreAfterCombat = nil
+
+    frame:Show()
+    if frame.escFrame then
+        frame.escFrame:Show()
+    end
+
+    self:RefreshRotationList()
+    if frame.activeRotation then
+        self:SetActiveRotationRow(frame.activeRotation)
+    end
 end
 
 -- Toggle management frame

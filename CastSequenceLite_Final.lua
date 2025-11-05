@@ -349,6 +349,10 @@ function CSL:RegisterSlashCommands()
         cmd = cmd:lower()
 
         if cmd == "" or cmd == "ui" then
+            if InCombatLockdown() then
+                print("|cFFFF0000Cannot open CastSequenceLite while in combat. Try again after combat.|r")
+                return
+            end
             -- Show management UI
             CSL.UIManager:ToggleManagementFrame()
         elseif cmd == "macro" then
