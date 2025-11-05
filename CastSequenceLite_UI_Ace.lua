@@ -445,23 +445,23 @@ function CSL.UIManager:CreateRotationListDragButton(rotationName, container)
         container.dragButton = nil
     end
 
-    local btn = CreateFrame("Button", nil, container.frame)
-    btn:SetSize(28, 28)
-    btn:SetPoint("RIGHT", container.frame, "RIGHT", -4, 0)
-    btn:EnableMouse(true)
+    local button = CreateFrame("Button", nil, container.frame)
+    button:SetSize(28, 28)
+    button:SetPoint("RIGHT", container.frame, "RIGHT", -4, 0)
+    button:EnableMouse(true)
 
-    btn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
-    btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    button:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+    button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 
-    local icon = btn:CreateTexture(nil, "ARTWORK")
-    icon:SetAllPoints(btn)
+    local icon = button:CreateTexture(nil, "ARTWORK")
+    icon:SetAllPoints(button)
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     local iconTexture = rotation.castCommands[1] and CSL.Helpers.GetIconForSpell(rotation.castCommands[1]) or CSL.Helpers.DEFAULT_ICON
     icon:SetTexture(iconTexture)
-    btn.icon = icon
+    button.icon = icon
 
-    btn:RegisterForDrag("LeftButton")
-    btn:SetScript("OnDragStart", function()
+    button:RegisterForDrag("LeftButton")
+    button:SetScript("OnDragStart", function()
         local macroName = "CSL_" .. rotationName
         local macroIdx = GetMacroIndexByName(macroName)
         if not macroIdx or macroIdx == 0 then
@@ -474,13 +474,13 @@ function CSL.UIManager:CreateRotationListDragButton(rotationName, container)
         end
     end)
 
-    btn:SetScript("OnEnter", function(self)
+    button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText("Drag to place '" .. rotationName .. "' on your action bar", 1, 1, 1, true)
     end)
-    btn:SetScript("OnLeave", GameTooltip_Hide)
+    button:SetScript("OnLeave", GameTooltip_Hide)
 
-    container.dragButton = btn
+    container.dragButton = button
 end
 
 -- Update button preview
@@ -506,24 +506,24 @@ function CSL.UIManager:UpdateButtonPreview(rotationName, container)
         container.previewButton = nil
     end
 
-    local btn = CreateFrame("Button", nil, previewParent)
-    container.previewButton = btn
-    btn:SetSize(36, 36)
-    btn:SetPoint("LEFT")
-    btn:EnableMouse(true)
+    local button = CreateFrame("Button", nil, previewParent)
+    container.previewButton = button
+    button:SetSize(36, 36)
+    button:SetPoint("LEFT")
+    button:EnableMouse(true)
 
-    btn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
-    btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    button:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
+    button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 
-    local icon = btn:CreateTexture(nil, "BACKGROUND")
-    icon:SetAllPoints(btn)
-    btn.icon = icon
+    local icon = button:CreateTexture(nil, "BACKGROUND")
+    icon:SetAllPoints(button)
+    button.icon = icon
 
     local iconTexture = rotation.castCommands[1] and CSL.Helpers.GetIconForSpell(rotation.castCommands[1]) or CSL.Helpers.DEFAULT_ICON
-    btn.icon:SetTexture(iconTexture)
+    button.icon:SetTexture(iconTexture)
 
-    btn:RegisterForDrag("LeftButton")
-    btn:SetScript("OnDragStart", function()
+    button:RegisterForDrag("LeftButton")
+    button:SetScript("OnDragStart", function()
         local macroName = "CSL_" .. rotationName
         local macroIdx = GetMacroIndexByName(macroName)
         if not macroIdx or macroIdx == 0 then
@@ -541,7 +541,7 @@ function CSL.UIManager:UpdateButtonPreview(rotationName, container)
         end
     end)
 
-    btn:Show()
+    button:Show()
 end
 
 -- Save rotation

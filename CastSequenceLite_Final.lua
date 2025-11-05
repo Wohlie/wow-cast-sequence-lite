@@ -120,46 +120,45 @@ function CSL:CreateButton(rotation)
     local macroName = "CSL_" .. rotation.name
 
     -- Create button with secure templates
-    local btn = CreateFrame("Button", buttonName, UIParent, "SecureActionButtonTemplate,SecureHandlerBaseTemplate")
-    btn:Hide()
+    local button = CreateFrame("Button", buttonName, UIParent, "SecureActionButtonTemplate,SecureHandlerBaseTemplate")
+    button:Hide()
 
     -- Store rotation reference on button
-    btn.rotationName = rotation.name
-    btn.macroName = macroName
+    button.rotationName = rotation.name
+    button.macroName = macroName
 
     -- Set as macro button
-    btn:SetAttribute("type", "macro")
-    btn:SetAttribute("step", 1)
-    btn:SetAttribute("numCastCommands", #rotation.castCommands)
+    button:SetAttribute("type", "macro")
+    button:SetAttribute("step", 1)
+    button:SetAttribute("numCastCommands", #rotation.castCommands)
 
     -- Set initial macrotext
     local initialCastCommand = rotation.castCommands[1]
     local initialMacroText = self:BuildMacroText(rotation, initialCastCommand)
-    btn:SetAttribute("macrotext", initialMacroText)
+    button:SetAttribute("macrotext", initialMacroText)
 
     -- Store spell attributes
-    self:UpdateButtonAttributes(rotation, btn)
+    self:UpdateButtonAttributes(rotation, button)
 
     -- Add secure click handler
-    self:SetupSecureClickHandler(rotation, btn)
+    self:SetupSecureClickHandler(rotation, button)
 
     -- Add PostClick handler
-    btn:SetScript("PostClick", function(self)
+    button:SetScript("PostClick", function(self)
         CSL:UpdateMacroSpell(self)
     end)
 
     -- Store in UI table
-    rotation.button = btn
+    rotation.button = button
 
     -- Initial rendering
-    CSL:UpdateMacroSpell(btn)
+    CSL:UpdateMacroSpell(button)
 
-    return btn
+    return button
 end
 
 -- Update button attributes for current rotation
-function CSL:UpdateButtonAttributes(rotation, btn)
-    local button = btn
+function CSL:UpdateButtonAttributes(rotation, button)
     if not button then
         return
     end
@@ -173,8 +172,7 @@ function CSL:UpdateButtonAttributes(rotation, btn)
 end
 
 -- Set up the secure click handler
-function CSL:SetupSecureClickHandler(rotation, btn)
-    local button = btn
+function CSL:SetupSecureClickHandler(rotation, button)
     if not button then
         return
     end
@@ -233,24 +231,23 @@ end
 
 -- Update macro spell icon (combat-safe)
 function CSL:UpdateMacroSpell(button)
-    local btn = button
-    if not btn or not btn.rotationName then
+    if not button or not button.rotationName then
         return
     end
 
-    local rotation = self.Rotations[btn.rotationName]
+    local rotation = self.Rotations[button.rotationName]
     if not rotation then
         return
     end
 
-    local currentStep = btn:GetAttribute("step") or 1
-    local currentCastCommand = btn:GetAttribute("castCommand" .. currentStep)
+    local currentStep = button:GetAttribute("step") or 1
+    local currentCastCommand = button:GetAttribute("castCommand" .. currentStep)
 
     if currentCastCommand then
         -- SetMacroSpell works even in combat!
         -- Extract spell name from "/cast SpellName"
         local spellName = CSL.Helpers.GetSpellName(currentCastCommand)
-        SetMacroSpell(btn.macroName, spellName)
+        SetMacroSpell(button.macroName, spellName)
     end
 end
 
