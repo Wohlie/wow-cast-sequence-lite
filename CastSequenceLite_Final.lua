@@ -101,10 +101,10 @@ function CSL:Initialize()
         self:InitializeRotation(rotationName, rotationConfig)
     end
 
-    -- Create UI elements and macros for each rotation
+    -- Create macros and UI elements for each rotation
     for rotationName, rotation in pairs(self.Rotations) do
-        self:CreateButton(rotation)
         self:CreateOrUpdateMacro(rotation)
+        self:CreateButton(rotation)
     end
 
     -- Register slash commands
