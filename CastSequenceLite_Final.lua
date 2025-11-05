@@ -17,11 +17,7 @@ CSL.MAX_ACCOUNT_MACROS = MAX_ACCOUNT_MACROS or 120
 
 -- Default configuration
 CSL.Config = {
-    buttonSize = 36,
-    initialPosition = { "CENTER", UIParent, "CENTER", 0, 0 },
-    showButton = true,
-    buttonFrameStrata = "MEDIUM",
-    macroIconIndex = 1,
+    macroIconIndex = 1
 }
 
 -- Default cast command rotations (can be replaced via slash commands)
@@ -125,32 +121,11 @@ function CSL:CreateButton(rotation)
 
     -- Create button with secure templates
     local btn = CreateFrame("Button", buttonName, UIParent, "SecureActionButtonTemplate,SecureHandlerBaseTemplate")
-    btn:SetSize(self.Config.buttonSize, self.Config.buttonSize)
-    btn:SetPoint(unpack(self.Config.initialPosition))
-    btn:SetFrameStrata(self.Config.buttonFrameStrata)
+    btn:Hide()
 
     -- Store rotation reference on button
     btn.rotationName = rotation.name
     btn.macroName = macroName
-
-    -- Make button draggable
-    btn:SetMovable(true)
-    btn:RegisterForDrag("LeftButton")
-    btn:SetScript("OnDragStart", function(self)
-        local macroIdx = GetMacroIndexByName(self.macroName)
-        if macroIdx and macroIdx > 0 then
-            PickupMacro(macroIdx)
-        end
-    end)
-    btn:SetScript("OnDragStop", function(self)
-        ClearCursor()
-    end)
-
-    -- Create icon texture
-    local icon = btn:CreateTexture(nil, "BACKGROUND")
-    icon:SetAllPoints(btn)
-    icon:SetTexture(CSL.Helpers.DEFAULT_ICON)
-    btn.icon = icon
 
     -- Set as macro button
     btn:SetAttribute("type", "macro")
@@ -162,7 +137,7 @@ function CSL:CreateButton(rotation)
     local initialMacroText = self:BuildMacroText(rotation, initialCastCommand)
     btn:SetAttribute("macrotext", initialMacroText)
 
-    -- Store spell and icon attributes
+    -- Store spell attributes
     self:UpdateButtonAttributes(rotation, btn)
 
     -- Add secure click handler
@@ -170,32 +145,14 @@ function CSL:CreateButton(rotation)
 
     -- Add PostClick handler
     btn:SetScript("PostClick", function(self)
-        CSL:UpdateButtonIcon(self)
         CSL:UpdateMacroSpell(self)
     end)
-
-    -- Set initial icon
-    if #rotation.castCommands > 0 then
-        local initialCastCommand = rotation.castCommands[1]
-        icon:SetTexture(CSL.Helpers.GetIconForSpell(initialCastCommand))
-    end
-
-    -- Add button visuals
-    btn:SetNormalTexture("Interface\\Buttons\\UI-Quickslot2")
-    btn:SetPushedTexture("Interface\\Buttons\\UI-Quickslot-Depress")
-    btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
 
     -- Store in UI table
     rotation.button = btn
 
     -- Initial rendering
-    CSL:UpdateButtonIcon(btn)
     CSL:UpdateMacroSpell(btn)
-
-    -- Show/hide based on config
-    if not self.Config.showButton then
-        btn:Hide()
-    end
 
     return btn
 end
@@ -210,10 +167,8 @@ function CSL:UpdateButtonAttributes(rotation, btn)
     button:SetAttribute("numCastCommands", #rotation.castCommands)
 
     for i, castCommand in ipairs(rotation.castCommands) do
-        local icon = CSL.Helpers.GetIconForSpell(castCommand)
         button:SetAttribute("castCommand" .. i, castCommand)
         button:SetAttribute("spellName" .. i, CSL.Helpers.GetSpellName(castCommand) or "")
-        button:SetAttribute("icon" .. i, icon)
     end
 end
 
@@ -276,21 +231,6 @@ function CSL:GetMacroTextTemplate(rotation)
     return template
 end
 
--- Update button icon
-function CSL:UpdateButtonIcon(button)
-    local btn = button
-    if not btn or not btn.icon then
-        return
-    end
-
-    local nextStep = btn:GetAttribute("step") or 1
-    local nextIcon = btn:GetAttribute("icon" .. nextStep)
-
-    if nextIcon then
-        btn.icon:SetTexture(nextIcon)
-    end
-end
-
 -- Update macro spell icon (combat-safe)
 function CSL:UpdateMacroSpell(button)
     local btn = button
@@ -342,73 +282,21 @@ end
 -- Register slash commands
 function CSL:RegisterSlashCommands()
     SLASH_CASTSEQLITE1 = "/csl"
-    SLASH_CASTSEQLITE2 = "/castseqlite"
-
     SlashCmdList["CASTSEQLITE"] = function(msg)
-        local cmd, arg = strsplit(" ", msg, 2)
-        cmd = cmd:lower()
-
-        if cmd == "" or cmd == "ui" then
-            if InCombatLockdown() then
-                print("|cFFFF0000Cannot open CastSequenceLite while in combat. Try again after combat.|r")
-                return
-            end
-            -- Show management UI
-            CSL.UIManager:ToggleManagementFrame()
-        elseif cmd == "macro" then
-            -- Show macro frame
-            if not MacroFrame or not MacroFrame:IsShown() then
-                ShowMacroFrame()
-            end
-            print("|cFF00FF00Drag 'CSL_<RotationName>' macros to your action bar!|r")
-        elseif cmd == "show" then
-            self.Config.showButton = true
-            for rotationName, rotation in pairs(self.Rotations) do
-                if rotation.button then
-                    rotation.button:Show()
-                end
-            end
-            print("|cFF00FF00All buttons shown|r")
-        elseif cmd == "hide" then
-            self.Config.showButton = false
-            for rotationName, rotation in pairs(self.Rotations) do
-                if rotation.button then
-                    rotation.button:Hide()
-                end
-            end
-            print("|cFF00FF00All buttons hidden|r")
-        elseif cmd == "help" then
-            self:PrintHelp()
+        if InCombatLockdown() then
+            print("|cFFFF0000Cannot open CastSequenceLite while in combat. Try again after combat.|r")
+            return
         end
-    end
-end
 
--- Print help information
-function CSL:PrintHelp()
-    print("|cFF00FF00CastSequenceLite v" .. self.VERSION .. " commands:|r")
-    print("|cFFFFFF00/csl|r - Open rotation management UI")
-    print("|cFFFFFF00/csl ui|r - Open rotation management UI")
-    print("|cFFFFFF00/csl macro|r - Open macro frame")
-    print("|cFFFFFF00/csl show|r - Show button")
-    print("|cFFFFFF00/csl hide|r - Hide button")
-    print("|cFFFFFF00/csl help|r - Show this help")
+        -- Show management UI
+        CSL.UIManager:ToggleManagementFrame()
+    end
 end
 
 -- Print welcome message
 function CSL:PrintWelcome()
     print("|cFF00FF00" .. addonName .. " v" .. self.VERSION .. " loaded!|r")
-    print("|cFFFFD700Available rotations:|r")
-
-    for rotationName, rotation in pairs(self.Rotations) do
-        print("|cFFFFD700  " .. rotationName .. ":|r")
-        for i, castCommand in ipairs(rotation.castCommands) do
-            print("|cFFFFD700    " .. i .. ". " .. castCommand .. "|r")
-        end
-    end
-
-    print("|cFFFFFF00Type /csl for options or /macro to open macro UI|r")
-    print("|cFFFFFF00Find 'CSL_<RotationName>' macros and drag them to your action bar!|r")
-    print("|cFF00FF00The macro icons will change with each spell in rotation!|r")
+    print("|cFFFFFF00Type /csl to open the rotation editor.|r")
 end
 
 -- Event frame setup
