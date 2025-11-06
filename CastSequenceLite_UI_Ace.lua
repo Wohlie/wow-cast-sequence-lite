@@ -601,17 +601,18 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
 
     -- Initialize or update rotation
     CSL:InitializeRotation(rotationName, rotationConfig)
+    CSL:SaveRotationConfig(rotationName, rotationConfig)
 
-    -- Create button and macro if new
+    -- Ensure macro exists before creating or updating the button
     local rotation = CSL.Rotations[rotationName]
+
     if not rotation.button then
         CSL:CreateButton(rotation)
-        CSL:CreateOrUpdateMacro(rotation)
     else
-        -- Update existing button attributes
         CSL:UpdateButtonAttributes(rotation, rotation.button)
-        CSL:CreateOrUpdateMacro(rotation)
     end
+
+    CSL:CreateOrUpdateMacro(rotation)
 
     print("|cFF00FF00Rotation '" .. rotationName .. "' saved!|r")
 

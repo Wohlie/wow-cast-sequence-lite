@@ -2,6 +2,7 @@
 ## Title: CastSequenceLite
 ## Author: Wohlie
 ## Version: 1.0.0
+## SavedVariablesPerCharacter: CastSequenceLiteDB
 
 Lib\Ace3\LibStub\LibStub.lua
 Lib\Ace3\CallbackHandler-1.0\CallbackHandler-1.0.xml

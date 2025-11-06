@@ -15,36 +15,37 @@ CSL.MAX_ROTATION_NAME_LENGTH = CSL.MAX_MACRO_NAME_LENGTH - #CSL.MACRO_PREFIX
 CSL.MAX_CHARACTER_MACROS = MAX_CHARACTER_MACROS or 18
 CSL.MAX_ACCOUNT_MACROS = MAX_ACCOUNT_MACROS or 120
 
--- Default configuration
-CSL.Config = {
-    macroIconIndex = 1
-}
-
--- Default cast command rotations (can be replaced via slash commands)
-CSL.DefaultRotations = {
-    ["Warrior"] = {
-        preCastCommand = "/startattack",
-        castCommands = {
-            "/cast Sturmangriff",
-            "/cast Siegesrausch",
-            "/cast Verwunden",
-            "/cast Heldenhafter Stoß"
-        }
-    },
-    ["WarriorAoE"] = {
-        preCastCommand = "/startattack",
-        castCommands = {
-            "/cast Donnerknall",
-            "/cast Wirbelwind",
-            "/cast Spalten"
-        }
-    }
-}
-
 -- Runtime state for all rotations (keyed by rotation name)
 CSL.Rotations = {}
 
-CSL.UI = {}
+-- Saved variable namespace (per-character database populated at runtime)
+CSL.DB = nil
+
+local function CopyRotationConfig(rotationConfig)
+    local copy = {
+        preCastCommand = rotationConfig and rotationConfig.preCastCommand or nil,
+        castCommands = {}
+    }
+
+    if rotationConfig and rotationConfig.castCommands then
+        for _, castCommand in ipairs(rotationConfig.castCommands) do
+            table.insert(copy.castCommands, castCommand)
+        end
+    end
+
+    return copy
+end
+
+function CSL:GetDatabase()
+    if self.DB then
+        return self.DB
+    end
+
+    CastSequenceLiteDB = CastSequenceLiteDB or {}
+    CastSequenceLiteDB.rotations = CastSequenceLiteDB.rotations or {}
+    self.DB = CastSequenceLiteDB
+    return self.DB
+end
 
 -- Initialize a single rotation from defaults
 function CSL:InitializeRotation(rotationName, rotationConfig)
@@ -92,16 +93,23 @@ function CSL:DeleteRotation(rotationName)
 
     -- Remove from rotations table
     self.Rotations[rotationName] = nil
+
+    local db = self:GetDatabase()
+    if db.rotations then
+        db.rotations[rotationName] = nil
+    end
 end
 
 -- Initialize the addon
 function CSL:Initialize()
-    -- Initialize all default rotations
-    for rotationName, rotationConfig in pairs(self.DefaultRotations) do
+    local db = self:GetDatabase()
+
+    -- Initialize all rotations stored for this character
+    for rotationName, rotationConfig in pairs(db.rotations) do
         self:InitializeRotation(rotationName, rotationConfig)
     end
 
-    -- Create macros and UI elements for each rotation
+    -- Create UI elements and macros for each rotation
     for rotationName, rotation in pairs(self.Rotations) do
         self:CreateOrUpdateMacro(rotation)
         self:CreateButton(rotation)
@@ -112,6 +120,11 @@ function CSL:Initialize()
 
     -- Print welcome message
     self:PrintWelcome()
+end
+
+function CSL:SaveRotationConfig(rotationName, rotationConfig)
+    local db = self:GetDatabase()
+    db.rotations[rotationName] = CopyRotationConfig(rotationConfig)
 end
 
 -- Create the main sequence button
@@ -256,23 +269,27 @@ function CSL:CreateOrUpdateMacro(rotation)
     local macroName = "CSL_" .. rotation.name
     local buttonName = "CSLButton_" .. rotation.name
     local macroIndex = GetMacroIndexByName(macroName)
-    local macroIconIndex = self.Config.macroIconIndex or 1
     local macroBody = "#showtooltip\n/click " .. buttonName
 
     if macroIndex == 0 then
         -- Macro doesn't exist, create it
-        local numAccountMacros, numCharacterMacros = GetNumMacros()
+        local _, numCharacterMacros = GetNumMacros()
 
         if numCharacterMacros < self.MAX_CHARACTER_MACROS then
             -- Create with the first cast command's icon (1 means character-specific macro)
-            CreateMacro(macroName, macroIconIndex, macroBody, 1)
+            CreateMacro(macroName, 1, macroBody, 1)
             print("|cFF00FF00Macro '" .. macroName .. "' created!|r")
         else
             print("|cFFFF0000Too many macros! Delete some and /reload|r")
         end
     else
-        -- Macro exists, update it with current icon
-        EditMacro(macroIndex, nil, macroIconIndex, macroBody)
+        -- Macro exists, update only the body
+        EditMacro(macroIndex, nil, nil, macroBody)
+    end
+
+    -- Restore icon from button's current spell state
+    if rotation.button then
+        self:UpdateMacroSpell(rotation.button)
     end
 end
 
