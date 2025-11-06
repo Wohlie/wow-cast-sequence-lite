@@ -35,6 +35,8 @@ function CSL.UIManager:SetEditorError(editorGroup, field, message)
 
     if field == "name" and editorGroup.nameErrorLabel then
         editorGroup.nameErrorLabel:SetText(formatted)
+    elseif field == "preCast" and editorGroup.preCastErrorLabel then
+        editorGroup.preCastErrorLabel:SetText(formatted)
     elseif field == "commands" and editorGroup.commandsErrorLabel then
         editorGroup.commandsErrorLabel:SetText(formatted)
     end
@@ -51,6 +53,10 @@ function CSL.UIManager:ClearEditorErrors(editorGroup)
 
     if editorGroup.commandsErrorLabel then
         editorGroup.commandsErrorLabel:SetText("")
+    end
+
+    if editorGroup.preCastErrorLabel then
+        editorGroup.preCastErrorLabel:SetText("")
     end
 end
 
@@ -305,13 +311,20 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     nameErrorSpacer:SetText(" ")
     editorScroll:AddChild(nameErrorSpacer)
 
-    -- PreCast input
-    local preCastInput = AceGUI:Create("EditBox")
-    preCastInput:SetLabel("Pre-Cast Command (optional):")
+    -- PreCast input (multi-line editor, 50% height of cast commands)
+    local preCastInput = AceGUI:Create("MultiLineEditBox")
+    preCastInput:SetLabel("Pre-Cast Commands (optional, one per line):")
     preCastInput:SetFullWidth(true)
+    preCastInput:SetNumLines(5)
     preCastInput:SetMaxLetters(255)
     preCastInput:DisableButton(true)
     editorScroll:AddChild(preCastInput)
+
+    local preCastErrorLabel = AceGUI:Create("Label")
+    preCastErrorLabel:SetFullWidth(true)
+    preCastErrorLabel:SetColor(1, 0.2, 0.2)
+    preCastErrorLabel:SetText("")
+    editorScroll:AddChild(preCastErrorLabel)
 
     local preCastSpacer = AceGUI:Create("Label")
     preCastSpacer:SetFullWidth(true)
@@ -322,7 +335,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     local commandsInput = AceGUI:Create("MultiLineEditBox")
     commandsInput:SetLabel("Cast Commands (one per line):")
     commandsInput:SetFullWidth(true)
-    commandsInput:SetNumLines(10)
+    commandsInput:SetNumLines(7)
     commandsInput:SetMaxLetters(0)
     commandsInput:DisableButton(true)
     editorScroll:AddChild(commandsInput)
@@ -378,6 +391,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     editorGroup.preCastInput = preCastInput
     editorGroup.commandsInput = commandsInput
     editorGroup.nameErrorLabel = nameErrorLabel
+    editorGroup.preCastErrorLabel = preCastErrorLabel
     editorGroup.commandsErrorLabel = commandsErrorLabel
     editorGroup.currentRotation = rotationName
 
@@ -393,6 +407,9 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
                     local nextEditBox = nextWidget.editbox or nextWidget.editBox
                     if nextEditBox then
                         nextEditBox:SetFocus()
+                        -- Place cursor at end of text
+                        local text = nextEditBox:GetText() or ""
+                        nextEditBox:SetCursorPosition(#text)
                     end
                 end
             end)
@@ -409,7 +426,8 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
         if rotation then
             nameInput:SetText(rotationName)
             nameInput:SetDisabled(true)
-            preCastInput:SetText(rotation.preCastCommand or "")
+            local preCastText = rotation.preCastCommands and table.concat(rotation.preCastCommands, "\n") or ""
+            preCastInput:SetText(preCastText)
             commandsInput:SetText(table.concat(rotation.castCommands, "\n"))
 
             -- Update button preview
@@ -433,6 +451,9 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
             local editBox = widget.editbox or widget.editBox
             if editBox then
                 editBox:SetFocus()
+                -- Place cursor at end of text
+                local text = editBox:GetText() or ""
+                editBox:SetCursorPosition(#text)
                 break
             end
         end
@@ -613,7 +634,7 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
     self:RegisterCombatWatcher()
 
     local rotationName = nameInput:GetText():trim()
-    local preCastCommand = preCastInput:GetText() or ""
+    local preCastText = preCastInput:GetText() or ""
     local commandsText = commandsInput:GetText()
 
     local editorGroup = self.ManagementFrame.editorGroup
@@ -638,7 +659,16 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
         return
     end
 
-    -- Parse commands
+    -- Parse pre-cast commands
+    local preCastCommands = {}
+    for line in preCastText:gmatch("[^\r\n]+") do
+        local trimmed = line:trim()
+        if trimmed ~= "" then
+            table.insert(preCastCommands, trimmed)
+        end
+    end
+
+    -- Parse cast commands
     local castCommands = {}
     for line in commandsText:gmatch("[^\r\n]+") do
         local trimmed = line:trim()
@@ -652,11 +682,23 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
         return
     end
 
-    -- Create rotation config
+    -- Create rotation config (without macro validation yet)
     local rotationConfig = {
-        preCastCommand = preCastCommand ~= "" and preCastCommand or nil,
+        preCastCommands = #preCastCommands > 0 and preCastCommands or nil,
         castCommands = castCommands
     }
+
+    -- Validate macro length before saving
+    local tempRotation = {
+        name = rotationName,
+        preCastCommands = rotationConfig.preCastCommands,
+        castCommands = rotationConfig.castCommands
+    }
+    local macroBody = CSL:BuildMacroText(tempRotation)
+    if #macroBody > 255 then
+        self:SetEditorError(editorGroup, "preCast", "Macro text exceeds 255 characters. Reduce your pre-cast commands.")
+        return
+    end
 
     -- Initialize or update rotation
     CSL:InitializeRotation(rotationName, rotationConfig)

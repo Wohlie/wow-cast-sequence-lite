@@ -23,9 +23,15 @@ CSL.DB = nil
 
 local function CopyRotationConfig(rotationConfig)
     local copy = {
-        preCastCommand = rotationConfig and rotationConfig.preCastCommand or nil,
+        preCastCommands = {},
         castCommands = {}
     }
+
+    if rotationConfig and rotationConfig.preCastCommands then
+        for _, preCastCommand in ipairs(rotationConfig.preCastCommands) do
+            table.insert(copy.preCastCommands, preCastCommand)
+        end
+    end
 
     if rotationConfig and rotationConfig.castCommands then
         for _, castCommand in ipairs(rotationConfig.castCommands) do
@@ -51,10 +57,17 @@ end
 function CSL:InitializeRotation(rotationName, rotationConfig)
     local rotation = {
         name = rotationName,
-        preCastCommand = rotationConfig.preCastCommand,
+        preCastCommands = {},
         castCommands = {},
         currentStep = 1
     }
+
+    -- Copy pre-cast commands
+    if rotationConfig.preCastCommands then
+        for i, preCastCommand in ipairs(rotationConfig.preCastCommands) do
+            table.insert(rotation.preCastCommands, preCastCommand)
+        end
+    end
 
     -- Copy cast commands
     for i, castCommand in ipairs(rotationConfig.castCommands) do
@@ -213,17 +226,18 @@ function CSL:SetupSecureClickHandler(rotation, button)
 end
 
 -- Build macro text for a spell
-function CSL:BuildMacroText(rotation, castCommand)
+function CSL:BuildMacroText(rotation)
     -- Extract spell name from "/cast SpellName" for #showtooltip
-    local spellName = CSL.Helpers.GetSpellName(castCommand)
-    local text = "#showtooltip " .. spellName
+    local text = "#showtooltip"
 
-    -- Add pre-cast command if defined
-    if rotation.preCastCommand and rotation.preCastCommand ~= "" then
-        text = text .. "\n" .. rotation.preCastCommand
+    -- Add pre-cast commands if defined
+    if rotation.preCastCommands and #rotation.preCastCommands > 0 then
+        for _, preCastCommand in ipairs(rotation.preCastCommands) do
+            text = text .. "\n" .. preCastCommand
+        end
     end
 
-    text = text .. "\n" .. castCommand
+    text = text .. "\n/click CSLButton_" .. rotation.name
     return text
 end
 
@@ -231,11 +245,13 @@ end
 function CSL:GetMacroTextTemplate(rotation)
     -- Extract spell name from "/cast SpellName" for #showtooltip
     -- Note: In secure code we need to inline the extraction logic
-    local template = "#showtooltip \" .. spellName .. \""
+    local template = "#showtooltip"
 
-    -- Add pre-cast command if defined
-    if rotation.preCastCommand and rotation.preCastCommand ~= "" then
-        template = template .. "\\n" .. rotation.preCastCommand
+    -- Add pre-cast commands if defined
+    if rotation.preCastCommands and #rotation.preCastCommands > 0 then
+        for _, preCastCommand in ipairs(rotation.preCastCommands) do
+            template = template .. "\\n" .. preCastCommand
+        end
     end
 
     template = template .. "\\n\" .. castCommand .. \""
@@ -267,9 +283,8 @@ end
 -- Create or update the macro
 function CSL:CreateOrUpdateMacro(rotation)
     local macroName = "CSL_" .. rotation.name
-    local buttonName = "CSLButton_" .. rotation.name
     local macroIndex = GetMacroIndexByName(macroName)
-    local macroBody = "#showtooltip\n/click " .. buttonName
+    local macroBody = self:BuildMacroText(rotation)
 
     if macroIndex == 0 then
         -- Macro doesn't exist, create it
@@ -283,7 +298,7 @@ function CSL:CreateOrUpdateMacro(rotation)
             print("|cFFFF0000Too many macros! Delete some and /reload|r")
         end
     else
-        -- Macro exists, update only the body
+        -- Macro exists, update with current step's commands
         EditMacro(macroIndex, nil, nil, macroBody)
     end
 
