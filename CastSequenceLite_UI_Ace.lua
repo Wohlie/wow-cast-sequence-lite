@@ -54,6 +54,36 @@ function CSL.UIManager:ClearEditorErrors(editorGroup)
     end
 end
 
+-- Helper to find next enabled input widget for tab navigation
+function CSL.UIManager:GetNextEnabledInput(inputWidgets, currentWidget, reverse)
+    local currentIndex
+    for i, widget in ipairs(inputWidgets) do
+        if widget == currentWidget then
+            currentIndex = i
+            break
+        end
+    end
+
+    if not currentIndex then
+        return nil
+    end
+
+    local step = reverse and -1 or 1
+    local count = #inputWidgets
+
+    for i = 1, count do
+        local nextIndex = ((currentIndex - 1 + i * step) % count) + 1
+        local nextWidget = inputWidgets[nextIndex]
+
+        -- Skip disabled widgets
+        if nextWidget and not nextWidget.disabled then
+            return nextWidget
+        end
+    end
+
+    return nil
+end
+
 function CSL.UIManager:EnsureRowBackdrop(rowFrame)
     if not rowFrame or rowFrame._cslHasBackdrop then
         return
@@ -351,6 +381,24 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     editorGroup.commandsErrorLabel = commandsErrorLabel
     editorGroup.currentRotation = rotationName
 
+    -- Setup tab navigation (Tab = forward, Shift+Tab = backward)
+    local inputWidgets = { nameInput, preCastInput, commandsInput }
+
+    for _, widget in ipairs(inputWidgets) do
+        local editBox = widget.editbox or widget.editBox
+        if editBox then
+            editBox:SetScript("OnTabPressed", function()
+                local nextWidget = self:GetNextEnabledInput(inputWidgets, widget, IsShiftKeyDown())
+                if nextWidget then
+                    local nextEditBox = nextWidget.editbox or nextWidget.editBox
+                    if nextEditBox then
+                        nextEditBox:SetFocus()
+                    end
+                end
+            end)
+        end
+    end
+
     self:ClearEditorErrors(editorGroup)
     frame.activeRotation = rotationName
     self:SetActiveRotationRow(rotationName)
@@ -378,6 +426,17 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     end
 
     frame:DoLayout()
+
+    -- Set focus to first enabled input field
+    for _, widget in ipairs(inputWidgets) do
+        if not widget.disabled then
+            local editBox = widget.editbox or widget.editBox
+            if editBox then
+                editBox:SetFocus()
+                break
+            end
+        end
+    end
 end
 
 function CSL.UIManager:AddRotationListRow(parent, rotationName)
