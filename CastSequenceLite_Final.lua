@@ -24,7 +24,8 @@ CSL.DB = nil
 local function CopyRotationConfig(rotationConfig)
     local copy = {
         preCastCommands = {},
-        castCommands = {}
+        castCommands = {},
+        resetAfterCombat = false
     }
 
     if rotationConfig and rotationConfig.preCastCommands then
@@ -37,6 +38,10 @@ local function CopyRotationConfig(rotationConfig)
         for _, castCommand in ipairs(rotationConfig.castCommands) do
             table.insert(copy.castCommands, castCommand)
         end
+    end
+
+    if rotationConfig and rotationConfig.resetAfterCombat then
+        copy.resetAfterCombat = rotationConfig.resetAfterCombat
     end
 
     return copy
@@ -59,7 +64,8 @@ function CSL:InitializeRotation(rotationName, rotationConfig)
         name = rotationName,
         preCastCommands = {},
         castCommands = {},
-        currentStep = 1
+        currentStep = 1,
+        resetAfterCombat = rotationConfig.resetAfterCombat or false
     }
 
     -- Copy pre-cast commands
@@ -130,6 +136,9 @@ function CSL:Initialize()
 
     -- Register slash commands
     self:RegisterSlashCommands()
+
+    -- Register combat watcher for reset after combat functionality
+    CSL.UIManager:RegisterCombatWatcher()
 
     -- Print welcome message
     self:PrintWelcome()

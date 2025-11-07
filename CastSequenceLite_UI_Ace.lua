@@ -351,6 +351,18 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     commandsErrorSpacer:SetText(" ")
     editorScroll:AddChild(commandsErrorSpacer)
 
+    -- Reset after combat checkbox
+    local resetAfterCombatCheckbox = AceGUI:Create("CheckBox")
+    resetAfterCombatCheckbox:SetLabel("Reset to first step after combat")
+    resetAfterCombatCheckbox:SetValue(false)
+    resetAfterCombatCheckbox:SetFullWidth(true)
+    editorScroll:AddChild(resetAfterCombatCheckbox)
+
+    local resetSpacer = AceGUI:Create("Label")
+    resetSpacer:SetFullWidth(true)
+    resetSpacer:SetText(" ")
+    editorScroll:AddChild(resetSpacer)
+
     -- Button group
     local buttonGroup = AceGUI:Create("SimpleGroup")
     buttonGroup:SetFullWidth(true)
@@ -362,7 +374,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     saveBtn:SetText("Save")
     saveBtn:SetWidth(100)
     saveBtn:SetCallback("OnClick", function()
-        CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
+        CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox)
     end)
     buttonGroup:AddChild(saveBtn)
 
@@ -390,6 +402,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     editorGroup.nameInput = nameInput
     editorGroup.preCastInput = preCastInput
     editorGroup.commandsInput = commandsInput
+    editorGroup.resetAfterCombatCheckbox = resetAfterCombatCheckbox
     editorGroup.nameErrorLabel = nameErrorLabel
     editorGroup.preCastErrorLabel = preCastErrorLabel
     editorGroup.commandsErrorLabel = commandsErrorLabel
@@ -429,6 +442,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
             local preCastText = rotation.preCastCommands and table.concat(rotation.preCastCommands, "\n") or ""
             preCastInput:SetText(preCastText)
             commandsInput:SetText(table.concat(rotation.castCommands, "\n"))
+            resetAfterCombatCheckbox:SetValue(rotation.resetAfterCombat or false)
 
             -- Update button preview
             if editorGroup.buttonContainer then
@@ -440,6 +454,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
         nameInput:SetDisabled(false)
         preCastInput:SetText("")
         commandsInput:SetText("")
+        resetAfterCombatCheckbox:SetValue(false)
         editorGroup.buttonContainer = nil
     end
 
@@ -625,7 +640,7 @@ function CSL.UIManager:UpdateButtonPreview(rotationName, container)
 end
 
 -- Save rotation
-function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
+function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox)
     if InCombatLockdown() then
         print("|cFFFF0000Cannot save rotations while in combat. Try again after combat.|r")
         return
@@ -636,6 +651,7 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
     local rotationName = nameInput:GetText():trim()
     local preCastText = preCastInput:GetText() or ""
     local commandsText = commandsInput:GetText()
+    local resetAfterCombat = resetAfterCombatCheckbox:GetValue()
 
     local editorGroup = self.ManagementFrame.editorGroup
     self:ClearEditorErrors(editorGroup)
@@ -685,7 +701,8 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput)
     -- Create rotation config (without macro validation yet)
     local rotationConfig = {
         preCastCommands = #preCastCommands > 0 and preCastCommands or nil,
-        castCommands = castCommands
+        castCommands = castCommands,
+        resetAfterCombat = resetAfterCombat
     }
 
     -- Validate macro length before saving
@@ -777,6 +794,15 @@ function CSL.UIManager:OnCombatStart()
 end
 
 function CSL.UIManager:OnCombatEnd()
+    -- Reset rotation steps for rotations with resetAfterCombat enabled
+    for rotationName, rotation in pairs(CSL.Rotations) do
+        if rotation.resetAfterCombat and rotation.button then
+            rotation.button:SetAttribute("step", 1)
+            -- Update macro for next click
+            CSL:CreateOrUpdateMacro(rotation)
+        end
+    end
+
     local frame = self.ManagementFrame
     if not frame or not frame._restoreAfterCombat then
         return
