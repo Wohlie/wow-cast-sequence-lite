@@ -16,7 +16,6 @@ StaticPopupDialogs["CSL_CONFIRM_DELETE"] = {
         end
 
         CSL:DeleteRotation(rotationName)
-        print("|cFF00FF00Rotation '" .. rotationName .. "' deleted!|r")
         CSL.UIManager:RefreshRotationList()
         CSL.UIManager:ShowRotationEditor(nil)
     end,
@@ -32,13 +31,15 @@ function CSL.UIManager:SetEditorError(editorGroup, field, message)
     end
 
     local formatted = message and (message .. "\n ") or ""
+    local fieldMap = {
+        name = "nameErrorLabel",
+        preCast = "preCastErrorLabel",
+        commands = "commandsErrorLabel"
+    }
 
-    if field == "name" and editorGroup.nameErrorLabel then
-        editorGroup.nameErrorLabel:SetText(formatted)
-    elseif field == "preCast" and editorGroup.preCastErrorLabel then
-        editorGroup.preCastErrorLabel:SetText(formatted)
-    elseif field == "commands" and editorGroup.commandsErrorLabel then
-        editorGroup.commandsErrorLabel:SetText(formatted)
+    local errorLabel = fieldMap[field] and editorGroup[fieldMap[field]]
+    if errorLabel then
+        errorLabel:SetText(formatted)
     end
 end
 
@@ -47,16 +48,11 @@ function CSL.UIManager:ClearEditorErrors(editorGroup)
         return
     end
 
-    if editorGroup.nameErrorLabel then
-        editorGroup.nameErrorLabel:SetText("")
-    end
-
-    if editorGroup.commandsErrorLabel then
-        editorGroup.commandsErrorLabel:SetText("")
-    end
-
-    if editorGroup.preCastErrorLabel then
-        editorGroup.preCastErrorLabel:SetText("")
+    local errorLabels = { "nameErrorLabel", "commandsErrorLabel", "preCastErrorLabel" }
+    for _, label in ipairs(errorLabels) do
+        if editorGroup[label] then
+            editorGroup[label]:SetText("")
+        end
     end
 end
 
@@ -80,13 +76,10 @@ function CSL.UIManager:GetNextEnabledInput(inputWidgets, currentWidget, reverse)
     for i = 1, count do
         local nextIndex = ((currentIndex - 1 + i * step) % count) + 1
         local nextWidget = inputWidgets[nextIndex]
-
-        -- Skip disabled widgets
         if nextWidget and not nextWidget.disabled then
             return nextWidget
         end
     end
-
     return nil
 end
 
@@ -115,17 +108,12 @@ function CSL.UIManager:SetActiveRotationRow(rotationName)
     end
 
     for name, rowData in pairs(frame.rotationRows) do
-        local group = rowData.group
-        local rowFrame = group and group.frame
+        local rowFrame = rowData.group and rowData.group.frame
         if rowFrame then
             self:EnsureRowBackdrop(rowFrame)
-            if rotationName and name == rotationName then
-                rowFrame:SetBackdropColor(0.1, 0.1, 0.1, 0.5)
-                rowFrame:SetBackdropBorderColor(0.4, 0.4, 0.4)
-            else
-                rowFrame:SetBackdropColor(0, 0, 0, 0)
-                rowFrame:SetBackdropBorderColor(0, 0, 0, 0)
-            end
+            local isActive = rotationName and name == rotationName
+            rowFrame:SetBackdropColor(isActive and 0.1 or 0, isActive and 0.1 or 0, isActive and 0.1 or 0, isActive and 0.5 or 0)
+            rowFrame:SetBackdropBorderColor(isActive and 0.4 or 0, isActive and 0.4 or 0, isActive and 0.4 or 0)
         end
     end
 end
@@ -238,7 +226,7 @@ function CSL.UIManager:CreateManagementFrame()
     return frame
 end
 
--- Refresh the rotation list
+-- Refresh the rotation list  
 function CSL.UIManager:RefreshRotationList()
     local frame = self.ManagementFrame
     if not frame or not frame.leftScroll then
@@ -246,8 +234,6 @@ function CSL.UIManager:RefreshRotationList()
     end
 
     local leftScroll = frame.leftScroll
-
-    -- Clear existing buttons (keep the "New" button)
     leftScroll:ReleaseChildren()
     frame.rotationRows = {}
 
@@ -260,7 +246,7 @@ function CSL.UIManager:RefreshRotationList()
     end)
     leftScroll:AddChild(newBtn)
 
-    -- Add rotation rows with drag button
+    -- Add rotation rows sorted
     local rotationNames = {}
     for rotationName in pairs(CSL.Rotations) do
         table.insert(rotationNames, rotationName)
@@ -399,6 +385,19 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     end
 
     -- Store references
+    editorGroup.inputs = {
+        name = nameInput,
+        preCast = preCastInput,
+        commands = commandsInput,
+        resetAfterCombat = resetAfterCombatCheckbox
+    }
+    editorGroup.errorLabels = {
+        name = nameErrorLabel,
+        preCast = preCastErrorLabel,
+        commands = commandsErrorLabel
+    }
+    editorGroup.currentRotation = rotationName
+    -- Compatibility references
     editorGroup.nameInput = nameInput
     editorGroup.preCastInput = preCastInput
     editorGroup.commandsInput = commandsInput
@@ -406,7 +405,6 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     editorGroup.nameErrorLabel = nameErrorLabel
     editorGroup.preCastErrorLabel = preCastErrorLabel
     editorGroup.commandsErrorLabel = commandsErrorLabel
-    editorGroup.currentRotation = rotationName
 
     -- Setup tab navigation (Tab = forward, Shift+Tab = backward)
     local inputWidgets = { nameInput, preCastInput, commandsInput }
@@ -433,21 +431,16 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     frame.activeRotation = rotationName
     self:SetActiveRotationRow(rotationName)
 
-    -- Populate data if editing
-    if rotationName then
-        local rotation = CSL.Rotations[rotationName]
-        if rotation then
-            nameInput:SetText(rotationName)
-            nameInput:SetDisabled(true)
-            local preCastText = rotation.preCastCommands and table.concat(rotation.preCastCommands, "\n") or ""
-            preCastInput:SetText(preCastText)
-            commandsInput:SetText(table.concat(rotation.castCommands, "\n"))
-            resetAfterCombatCheckbox:SetValue(rotation.resetAfterCombat or false)
-
-            -- Update button preview
-            if editorGroup.buttonContainer then
-                self:UpdateButtonPreview(rotationName, editorGroup.buttonContainer)
-            end
+    -- Populate data
+    local rotation = rotationName and CSL.Rotations[rotationName]
+    if rotation then
+        nameInput:SetText(rotationName)
+        nameInput:SetDisabled(true)
+        preCastInput:SetText(rotation.preCastCommands and table.concat(rotation.preCastCommands, "\n") or "")
+        commandsInput:SetText(table.concat(rotation.castCommands, "\n"))
+        resetAfterCombatCheckbox:SetValue(rotation.resetAfterCombat or false)
+        if editorGroup.buttonContainer then
+            self:UpdateButtonPreview(rotationName, editorGroup.buttonContainer)
         end
     else
         nameInput:SetText("")
@@ -589,7 +582,6 @@ function CSL.UIManager:UpdateButtonPreview(rotationName, container)
         return
     end
 
-    -- Make sure the macro exists so we can pick it up when dragging
     CSL:CreateOrUpdateMacro(rotation)
 
     local previewParent = container.content
@@ -649,10 +641,6 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
     self:RegisterCombatWatcher()
 
     local rotationName = nameInput:GetText():trim()
-    local preCastText = preCastInput:GetText() or ""
-    local commandsText = commandsInput:GetText()
-    local resetAfterCombat = resetAfterCombatCheckbox:GetValue()
-
     local editorGroup = self.ManagementFrame.editorGroup
     self:ClearEditorErrors(editorGroup)
 
@@ -667,52 +655,40 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
         return
     end
 
-    local currentRotation = editorGroup.currentRotation
-
-    -- Check for duplicate name when creating new
-    if not currentRotation and CSL.Rotations[rotationName] then
+    -- Check for duplicate only when creating new
+    if not editorGroup.currentRotation and CSL.Rotations[rotationName] then
         self:SetEditorError(editorGroup, "name", "Rotation '" .. rotationName .. "' already exists.")
         return
     end
 
-    -- Parse pre-cast commands
-    local preCastCommands = {}
-    for line in preCastText:gmatch("[^\r\n]+") do
-        local trimmed = line:trim()
-        if trimmed ~= "" then
-            table.insert(preCastCommands, trimmed)
+    -- Parse commands more efficiently
+    local function parseCommands(text)
+        local commands = {}
+        for line in (text or ""):gmatch("[^\r\n]+") do
+            local trimmed = line:trim()
+            if trimmed ~= "" then
+                table.insert(commands, trimmed)
+            end
         end
+        return commands
     end
 
-    -- Parse cast commands
-    local castCommands = {}
-    for line in commandsText:gmatch("[^\r\n]+") do
-        local trimmed = line:trim()
-        if trimmed ~= "" then
-            table.insert(castCommands, trimmed)
-        end
-    end
-
+    local preCastCommands = parseCommands(preCastInput:GetText())
+    local castCommands = parseCommands(commandsInput:GetText())
     if #castCommands == 0 then
         self:SetEditorError(editorGroup, "commands", "At least one cast command is required.")
         return
     end
 
-    -- Create rotation config (without macro validation yet)
     local rotationConfig = {
         preCastCommands = #preCastCommands > 0 and preCastCommands or nil,
         castCommands = castCommands,
-        resetAfterCombat = resetAfterCombat
+        resetAfterCombat = resetAfterCombatCheckbox:GetValue()
     }
 
-    -- Validate macro length before saving
-    local tempRotation = {
-        name = rotationName,
-        preCastCommands = rotationConfig.preCastCommands,
-        castCommands = rotationConfig.castCommands
-    }
-    local macroBody = CSL:BuildMacroText(tempRotation)
-    if #macroBody > 255 then
+    -- Quick macro length check
+    local tempRotation = { name = rotationName, preCastCommands = rotationConfig.preCastCommands, castCommands = rotationConfig.castCommands }
+    if #CSL:BuildMacroText(tempRotation) > 255 then
         self:SetEditorError(editorGroup, "preCast", "Macro text exceeds 255 characters. Reduce your pre-cast commands.")
         return
     end
@@ -752,10 +728,7 @@ function CSL.UIManager:DeleteRotation()
         return
     end
 
-    local editorGroup = frame.editorGroup
-    local rotationName = editorGroup.currentRotation
-
-    -- Show confirmation dialog
+    local rotationName = frame.editorGroup.currentRotation
     StaticPopup_Show("CSL_CONFIRM_DELETE", rotationName, nil, rotationName)
 end
 
@@ -788,14 +761,13 @@ function CSL.UIManager:OnCombatStart()
     if frame.escFrame and frame.escFrame:IsShown() then
         frame.escFrame:Hide()
     end
-
     frame:Hide()
     print("|cFFFFD700CastSequenceLite hidden during combat. It will return after combat ends.|r")
 end
 
 function CSL.UIManager:OnCombatEnd()
     -- Reset rotation steps for rotations with resetAfterCombat enabled
-    for rotationName, rotation in pairs(CSL.Rotations) do
+    for _, rotation in pairs(CSL.Rotations) do
         if rotation.resetAfterCombat and rotation.button then
             rotation.button:SetAttribute("step", 1)
             -- Update macro for next click
@@ -809,7 +781,6 @@ function CSL.UIManager:OnCombatEnd()
     end
 
     frame._restoreAfterCombat = nil
-
     frame:Show()
     if frame.escFrame then
         frame.escFrame:Show()

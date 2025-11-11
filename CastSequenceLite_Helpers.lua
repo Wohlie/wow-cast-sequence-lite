@@ -29,41 +29,26 @@ function CSL.Helpers.GetSpellName(castCommand)
         return ""
     end
 
-    local cachedName = CSL.Helpers.SpellNameCache[castCommand]
-    if cachedName ~= nil then
-        return cachedName
+    local cache = CSL.Helpers.SpellNameCache
+    if not cache[castCommand] then
+        cache[castCommand] = CSL.Helpers.ExtractSpellName(castCommand)
     end
 
-    local spellName = CSL.Helpers.ExtractSpellName(castCommand)
-    CSL.Helpers.SpellNameCache[castCommand] = spellName
-    return spellName
+    return cache[castCommand]
 end
 
 function CSL.Helpers.GetIconForSpell(castCommand)
-    local fallback = CSL.Helpers.DEFAULT_ICON
-
     if not castCommand then
-        return fallback
+        return CSL.Helpers.DEFAULT_ICON
     end
 
-    local cachedIcon = CSL.Helpers.IconCache[castCommand]
-    if cachedIcon ~= nil then
-        return cachedIcon
+    local cache = CSL.Helpers.IconCache
+    if not cache[castCommand] then
+        local spellName = CSL.Helpers.GetSpellName(castCommand)
+        local _, _, iconTexture = GetSpellInfo(spellName)
+        cache[castCommand] = iconTexture or CSL.Helpers.DEFAULT_ICON
     end
 
-    local spellName = CSL.Helpers.GetSpellName(castCommand)
-    if spellName == "" then
-        CSL.Helpers.IconCache[castCommand] = fallback
-        return fallback
-    end
-
-    local _, _, iconTexture = GetSpellInfo(spellName)
-    if iconTexture then
-        CSL.Helpers.IconCache[castCommand] = iconTexture
-        return iconTexture
-    end
-
-    CSL.Helpers.IconCache[castCommand] = fallback
-    return fallback
+    return cache[castCommand]
 end
 
