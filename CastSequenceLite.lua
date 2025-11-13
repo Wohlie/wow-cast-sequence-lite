@@ -182,12 +182,7 @@ end
 
 -- Build macro text for a spell  
 function CSL:BuildMacroText(rotation)
-    local text = "#showtooltip"
-    for _, preCastCommand in ipairs(rotation.preCastCommands or {}) do
-        text = text .. "\n" .. preCastCommand
-    end
-
-    return text .. "\n/click CSLButton_" .. rotation.name
+    return "#showtooltip\n/click CSLButton_" .. rotation.name
 end
 
 -- Get macro text template for secure handler

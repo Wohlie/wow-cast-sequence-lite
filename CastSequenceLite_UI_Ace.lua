@@ -686,13 +686,6 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
         resetAfterCombat = resetAfterCombatCheckbox:GetValue()
     }
 
-    -- Quick macro length check
-    local tempRotation = { name = rotationName, preCastCommands = rotationConfig.preCastCommands, castCommands = rotationConfig.castCommands }
-    if #CSL:BuildMacroText(tempRotation) > 255 then
-        self:SetEditorError(editorGroup, "preCast", "Macro text exceeds 255 characters. Reduce your pre-cast commands.")
-        return
-    end
-
     -- Initialize or update rotation
     CSL:InitializeRotation(rotationName, rotationConfig)
     CSL:SaveRotationConfig(rotationName, rotationConfig)
