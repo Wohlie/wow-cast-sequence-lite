@@ -130,8 +130,14 @@ function CSL:CreateButton(rotation)
     self:UpdateButtonAttributes(rotation, button)
     self:SetupSecureClickHandler(rotation, button)
 
+    -- Suppress UI errors during rotation clicks only
+    button:SetScript("PreClick", function()
+        CSL.Error:BeginErrorSuppression()
+    end)
+
     button:SetScript("PostClick", function(self)
         CSL:UpdateMacroSpell(self)
+        CSL.Error:EndErrorSuppression()
     end)
 
     rotation.button = button

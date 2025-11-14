@@ -12,3 +12,4 @@ Lib\Ace3\AceConfig-3.0\AceConfig-3.0.xml
 CastSequenceLite_Helpers.lua
 CastSequenceLite_UI_Ace.lua
 CastSequenceLite.lua
+CastSequenceLite_Errors.lua
