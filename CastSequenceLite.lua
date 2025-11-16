@@ -46,13 +46,13 @@ end
 
 -- Initialize a single rotation from defaults
 function CSL:InitializeRotation(rotationName, rotationConfig)
-    local rotation = {
-        name = rotationName,
-        preCastCommands = rotationConfig.preCastCommands and { unpack(rotationConfig.preCastCommands) } or {},
-        castCommands = { unpack(rotationConfig.castCommands) },
-        currentStep = 1,
-        resetAfterCombat = rotationConfig.resetAfterCombat or false
-    }
+    local rotation = self.Rotations[rotationName] or {}
+
+    rotation.name = rotationName
+    rotation.preCastCommands = rotationConfig.preCastCommands and { unpack(rotationConfig.preCastCommands) } or {}
+    rotation.castCommands = { unpack(rotationConfig.castCommands) }
+    rotation.currentStep = 1
+    rotation.resetAfterCombat = rotationConfig.resetAfterCombat or false
 
     -- Precompute spell names for caching
     for _, castCommand in ipairs(rotation.castCommands) do
@@ -152,10 +152,25 @@ function CSL:UpdateButtonAttributes(rotation, button)
         return
     end
 
-    button:SetAttribute("numCastCommands", #rotation.castCommands)
+    local newCount = #rotation.castCommands
+    local previousCount = button:GetAttribute("numCastCommands") or 0
+
+    button:SetAttribute("numCastCommands", newCount)
     for i, castCommand in ipairs(rotation.castCommands) do
         button:SetAttribute("castCommand" .. i, castCommand)
         button:SetAttribute("spellName" .. i, CSL.Helpers.GetSpellName(castCommand))
+    end
+
+    if previousCount > newCount then
+        for i = newCount + 1, previousCount do
+            button:SetAttribute("castCommand" .. i, nil)
+            button:SetAttribute("spellName" .. i, nil)
+        end
+    end
+
+    local currentStep = button:GetAttribute("step") or 1
+    if currentStep > newCount then
+        button:SetAttribute("step", 1)
     end
 end
 
