@@ -4,6 +4,8 @@ CSL.UIManager = CSL.UIManager or {}
 
 local AceGUI = LibStub("AceGUI-3.0")
 
+local ERROR_SOUND_ID = "igQuestFailed"
+
 -- Define confirmation dialog for deletion
 StaticPopupDialogs["CSL_CONFIRM_DELETE"] = {
     text = "Are you sure you want to delete the rotation '%s'?",
@@ -30,7 +32,7 @@ function CSL.UIManager:SetEditorError(editorGroup, field, message)
         return
     end
 
-    local formatted = message and (message .. "\n ") or ""
+    local formatted = message and message or ""
     local fieldMap = {
         name = "nameErrorLabel",
         preCast = "preCastErrorLabel",
