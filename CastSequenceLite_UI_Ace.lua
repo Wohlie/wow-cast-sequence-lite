@@ -39,6 +39,11 @@ function CSL.UIManager:SetEditorError(editorGroup, field, message)
 
     local errorLabel = fieldMap[field] and editorGroup[fieldMap[field]]
     if errorLabel then
+        local shouldPlaySound = not editorGroup._errorSoundPlayed and formatted ~= ""
+        if shouldPlaySound then
+            PlaySound(ERROR_SOUND_ID)
+            editorGroup._errorSoundPlayed = true
+        end
         errorLabel:SetText(formatted)
     end
 end
@@ -54,6 +59,8 @@ function CSL.UIManager:ClearEditorErrors(editorGroup)
             editorGroup[label]:SetText("")
         end
     end
+
+    editorGroup._errorSoundPlayed = nil
 end
 
 -- Helper to find next enabled input widget for tab navigation
