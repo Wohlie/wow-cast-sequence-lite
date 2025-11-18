@@ -721,6 +721,12 @@ function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRota
         return false
     end
 
+    -- Check for invalid characters (only a-z, A-Z, 0-9, _, and - are allowed)
+    if rotationName:match("[^a-zA-Z0-9_%-]") then
+        self:SetEditorError(editorGroup, "name", "Rotation name can only contain letters, numbers, underscores, and hyphens.")
+        return false
+    end
+
     if #rotationName > CSL.MAX_ROTATION_NAME_LENGTH then
         self:SetEditorError(editorGroup, "name", 
             "Rotation name must be " .. CSL.MAX_ROTATION_NAME_LENGTH .. " characters or less.")
