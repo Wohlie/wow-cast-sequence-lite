@@ -2,11 +2,12 @@ local addonName, CSL = ...
 
 CSL.UIManager = CSL.UIManager or {}
 
+-- Dependencies
 local AceGUI = LibStub("AceGUI-3.0")
 
 local ERROR_SOUND_ID = "igQuestFailed"
+local ESC_FRAME_NAME = "CSLManagementFrame"
 
--- Define confirmation dialog for deletion
 StaticPopupDialogs["CSL_CONFIRM_DELETE"] = {
     text = "Are you sure you want to delete the rotation '%s'?",
     button1 = "Yes",
@@ -27,12 +28,16 @@ StaticPopupDialogs["CSL_CONFIRM_DELETE"] = {
     preferredIndex = 3,
 }
 
+--- Set an error message for a specific editor field
+-- @param editorGroup The editor group widget
+-- @param field The field name (name, preCast, or commands)
+-- @param message The error message to display
 function CSL.UIManager:SetEditorError(editorGroup, field, message)
     if not editorGroup then
         return
     end
 
-    local formatted = message and message or ""
+    local formatted = message or ""
     local fieldMap = {
         name = "nameErrorLabel",
         preCast = "preCastErrorLabel",
@@ -50,6 +55,8 @@ function CSL.UIManager:SetEditorError(editorGroup, field, message)
     end
 end
 
+--- Clear all error messages in the editor
+-- @param editorGroup The editor group widget
 function CSL.UIManager:ClearEditorErrors(editorGroup)
     if not editorGroup then
         return
@@ -65,7 +72,11 @@ function CSL.UIManager:ClearEditorErrors(editorGroup)
     editorGroup._errorSoundPlayed = nil
 end
 
--- Helper to find next enabled input widget for tab navigation
+--- Find next enabled input widget for tab navigation
+-- @param inputWidgets Array of input widgets
+-- @param currentWidget The current widget
+-- @param reverse Whether to navigate backwards (Shift+Tab)
+-- @return The next enabled widget, or nil if none found
 function CSL.UIManager:GetNextEnabledInput(inputWidgets, currentWidget, reverse)
     local currentIndex
     for i, widget in ipairs(inputWidgets) do
@@ -92,6 +103,8 @@ function CSL.UIManager:GetNextEnabledInput(inputWidgets, currentWidget, reverse)
     return nil
 end
 
+--- Ensure a row frame has the proper backdrop
+-- @param rowFrame The row frame to style
 function CSL.UIManager:EnsureRowBackdrop(rowFrame)
     if not rowFrame or rowFrame._cslHasBackdrop then
         return
@@ -110,39 +123,57 @@ function CSL.UIManager:EnsureRowBackdrop(rowFrame)
     rowFrame._cslHasBackdrop = true
 end
 
+--- Set the active rotation row highlight
+-- @param rotationName The name of the active rotation, or nil for none
 function CSL.UIManager:SetActiveRotationRow(rotationName)
     local frame = self.ManagementFrame
     if not frame or not frame.rotationRows then
         return
     end
 
+    local colors = CSL.COLORS
     for name, rowData in pairs(frame.rotationRows) do
         local rowFrame = rowData.group and rowData.group.frame
         if rowFrame then
             self:EnsureRowBackdrop(rowFrame)
             local isActive = rotationName and name == rotationName
-            rowFrame:SetBackdropColor(isActive and 0.1 or 0, isActive and 0.1 or 0, isActive and 0.1 or 0, isActive and 0.5 or 0)
-            rowFrame:SetBackdropBorderColor(isActive and 0.4 or 0, isActive and 0.4 or 0, isActive and 0.4 or 0)
+            local bg = colors.ACTIVE_BG
+            local border = colors.ACTIVE_BORDER
+            
+            rowFrame:SetBackdropColor(
+                isActive and bg.r or 0,
+                isActive and bg.g or 0,
+                isActive and bg.b or 0,
+                isActive and bg.a or 0
+            )
+            rowFrame:SetBackdropBorderColor(
+                isActive and border.r or 0,
+                isActive and border.g or 0,
+                isActive and border.b or 0
+            )
         end
     end
 end
 
--- Create the main rotation management frame
+--- Create the main rotation management frame
+-- @return The management frame widget
 function CSL.UIManager:CreateManagementFrame()
     if self.ManagementFrame then
         return self.ManagementFrame
     end
 
-    -- Main frame
+    local ui = CSL.UI
     local frame = AceGUI:Create("Frame")
     frame:SetTitle("CastSequenceLite - Rotation Manager")
     frame:SetLayout("Fill")
-    frame:SetWidth(700)
-    frame:SetHeight(500)
+    frame:SetWidth(ui.FRAME_WIDTH)
+    frame:SetHeight(ui.FRAME_HEIGHT)
+    
     if frame.frame then
         frame.frame:SetFrameStrata("DIALOG")
         frame.frame:SetToplevel(true)
     end
+    
     frame:SetCallback("OnClose", function(widget)
         widget:Hide()
         if widget.escFrame and widget.escFrame:IsShown() then
@@ -150,76 +181,30 @@ function CSL.UIManager:CreateManagementFrame()
         end
     end)
 
-    -- Proxy frame to integrate with UISpecialFrames (ESC handling)
-    local escFrameName = "CSLManagementFrame"
-    local escFrame = _G[escFrameName]
-    if not escFrame then
-        escFrame = CreateFrame("Frame", escFrameName, UIParent)
-        escFrame:Hide()
-        escFrame:SetFrameStrata("DIALOG")
-        escFrame:SetToplevel(true)
-        table.insert(UISpecialFrames, escFrameName)
-    end
-
+    -- Create ESC frame for proper ESC key handling
+    local escFrame = self:CreateESCFrame(frame)
     frame.escFrame = escFrame
 
-    escFrame:SetScript("OnShow", function()
-        if not frame.frame:IsShown() then
-            frame:Show()
-        end
-    end)
-
-    escFrame:SetScript("OnHide", function()
-        if frame.frame:IsShown() then
-            frame:Hide()
-        end
-    end)
-
-    -- Main container with horizontal layout
-    local mainContainer = AceGUI:Create("SimpleGroup")
-    mainContainer:SetFullWidth(true)
-    mainContainer:SetFullHeight(true)
-    mainContainer:SetLayout("Flow")
+    -- Create main container and panels
+    local mainContainer = self:CreateMainContainer()
     frame:AddChild(mainContainer)
 
-    -- Left panel: Rotation list (200px wide)
-    local leftGroup = AceGUI:Create("InlineGroup")
-    leftGroup:SetTitle("Rotations")
-    leftGroup:SetLayout("Fill")
-    leftGroup:SetWidth(200)
-    leftGroup:SetRelativeWidth(0.3)
-    leftGroup:SetFullHeight(true)
+    local leftGroup = self:CreateLeftPanel()
     mainContainer:AddChild(leftGroup)
 
-    local leftScroll = AceGUI:Create("ScrollFrame")
-    leftScroll:SetLayout("List")
-    leftScroll:SetFullWidth(true)
-    leftScroll:SetFullHeight(true)
+    local leftScroll = self:CreateLeftScrollPanel()
     leftGroup:AddChild(leftScroll)
-
     frame.leftScroll = leftScroll
 
-    -- New rotation button
-    local newBtn = AceGUI:Create("Button")
-    newBtn:SetText("+ New Rotation")
-    newBtn:SetFullWidth(true)
-    newBtn:SetCallback("OnClick", function()
-        CSL.UIManager:ShowRotationEditor(nil)
-    end)
-    leftScroll:AddChild(newBtn)
+    self:AddNewRotationButton(leftScroll)
 
-    -- Right panel: Editor
-    local rightGroup = AceGUI:Create("InlineGroup")
-    rightGroup:SetTitle("Rotation Editor")
-    rightGroup:SetLayout("Fill")
-    rightGroup:SetFullWidth(true)
-    rightGroup:SetRelativeWidth(0.7)
-    rightGroup:SetFullHeight(true)
+    local rightGroup = self:CreateRightPanel()
     mainContainer:AddChild(rightGroup)
 
     frame.editorGroup = rightGroup
     frame.rotationRows = {}
     frame.activeRotation = nil
+    
     rightGroup:SetCallback("OnShow", function()
         local editorGroup = frame.editorGroup
         if editorGroup and editorGroup.nameInput and editorGroup.nameInput.SetFocus then
@@ -235,7 +220,92 @@ function CSL.UIManager:CreateManagementFrame()
     return frame
 end
 
--- Refresh the rotation list  
+--- Create ESC frame for proper ESC key handling
+-- @param frame The main frame
+-- @return The ESC frame
+function CSL.UIManager:CreateESCFrame(frame)
+    local escFrame = _G[ESC_FRAME_NAME]
+    if not escFrame then
+        escFrame = CreateFrame("Frame", ESC_FRAME_NAME, UIParent)
+        escFrame:Hide()
+        escFrame:SetFrameStrata("DIALOG")
+        escFrame:SetToplevel(true)
+        table.insert(UISpecialFrames, ESC_FRAME_NAME)
+    end
+
+    escFrame:SetScript("OnShow", function()
+        if not frame.frame:IsShown() then
+            frame:Show()
+        end
+    end)
+
+    escFrame:SetScript("OnHide", function()
+        if frame.frame:IsShown() then
+            frame:Hide()
+        end
+    end)
+
+    return escFrame
+end
+
+--- Create the main container with horizontal layout
+-- @return The main container widget
+function CSL.UIManager:CreateMainContainer()
+    local mainContainer = AceGUI:Create("SimpleGroup")
+    mainContainer:SetFullWidth(true)
+    mainContainer:SetFullHeight(true)
+    mainContainer:SetLayout("Flow")
+    return mainContainer
+end
+
+--- Create the left panel for rotation list
+-- @return The left panel widget
+function CSL.UIManager:CreateLeftPanel()
+    local ui = CSL.UI
+    local leftGroup = AceGUI:Create("InlineGroup")
+    leftGroup:SetTitle("Rotations")
+    leftGroup:SetLayout("Fill")
+    leftGroup:SetRelativeWidth(ui.LEFT_PANEL_WIDTH_RATIO)
+    leftGroup:SetFullHeight(true)
+    return leftGroup
+end
+
+--- Create the left scroll panel
+-- @return The scroll frame widget
+function CSL.UIManager:CreateLeftScrollPanel()
+    local leftScroll = AceGUI:Create("ScrollFrame")
+    leftScroll:SetLayout("List")
+    leftScroll:SetFullWidth(true)
+    leftScroll:SetFullHeight(true)
+    return leftScroll
+end
+
+--- Add the new rotation button to the left panel
+-- @param parent The parent widget
+function CSL.UIManager:AddNewRotationButton(parent)
+    local newBtn = AceGUI:Create("Button")
+    newBtn:SetText("+ New Rotation")
+    newBtn:SetFullWidth(true)
+    newBtn:SetCallback("OnClick", function()
+        CSL.UIManager:ShowRotationEditor(nil)
+    end)
+    parent:AddChild(newBtn)
+end
+
+--- Create the right panel for rotation editor
+-- @return The right panel widget
+function CSL.UIManager:CreateRightPanel()
+    local ui = CSL.UI
+    local rightGroup = AceGUI:Create("InlineGroup")
+    rightGroup:SetTitle("Rotation Editor")
+    rightGroup:SetLayout("Fill")
+    rightGroup:SetFullWidth(true)
+    rightGroup:SetRelativeWidth(ui.RIGHT_PANEL_WIDTH_RATIO)
+    rightGroup:SetFullHeight(true)
+    return rightGroup
+end
+
+--- Refresh the rotation list in the left panel
 function CSL.UIManager:RefreshRotationList()
     local frame = self.ManagementFrame
     if not frame or not frame.leftScroll then
@@ -247,26 +317,26 @@ function CSL.UIManager:RefreshRotationList()
     frame.rotationRows = {}
 
     -- Re-add new button
-    local newBtn = AceGUI:Create("Button")
-    newBtn:SetText("+ New Rotation")
-    newBtn:SetFullWidth(true)
-    newBtn:SetCallback("OnClick", function()
-        CSL.UIManager:ShowRotationEditor(nil)
-    end)
-    leftScroll:AddChild(newBtn)
+    self:AddNewRotationButton(leftScroll)
 
     -- Add rotation rows sorted
-    local rotationNames = {}
-    for rotationName in pairs(CSL.Rotations) do
-        table.insert(rotationNames, rotationName)
-    end
-    table.sort(rotationNames)
-
+    local rotationNames = self:GetSortedRotationNames()
     for _, rotationName in ipairs(rotationNames) do
         self:AddRotationListRow(leftScroll, rotationName)
     end
 
     self:SetActiveRotationRow(frame.activeRotation)
+end
+
+--- Get sorted list of rotation names
+-- @return Array of rotation names sorted alphabetically
+function CSL.UIManager:GetSortedRotationNames()
+    local rotationNames = {}
+    for rotationName in pairs(CSL.Rotations) do
+        table.insert(rotationNames, rotationName)
+    end
+    table.sort(rotationNames)
+    return rotationNames
 end
 
 -- Show rotation editor
@@ -640,10 +710,56 @@ function CSL.UIManager:UpdateButtonPreview(rotationName, container)
     button:Show()
 end
 
--- Save rotation
+--- Validate rotation name
+-- @param rotationName The rotation name to validate
+-- @param editorGroup The editor group for error display
+-- @param isNewRotation Whether this is a new rotation (for duplicate checking)
+-- @return true if valid, false otherwise
+function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRotation)
+    if rotationName == "" then
+        self:SetEditorError(editorGroup, "name", "Rotation name cannot be empty.")
+        return false
+    end
+
+    if #rotationName > CSL.MAX_ROTATION_NAME_LENGTH then
+        self:SetEditorError(editorGroup, "name", 
+            "Rotation name must be " .. CSL.MAX_ROTATION_NAME_LENGTH .. " characters or less.")
+        return false
+    end
+
+    -- Check for duplicate only when creating new (case-insensitive)
+    if isNewRotation then
+        local existingRotationName = CSL:FindRotationCaseInsensitive(rotationName)
+        if existingRotationName then
+            self:SetEditorError(editorGroup, "name", 
+                "Rotation '" .. existingRotationName .. "' already exists.")
+            return false
+        end
+    end
+
+    return true
+end
+
+--- Validate cast commands
+-- @param castCommands Array of cast commands
+-- @param editorGroup The editor group for error display
+-- @return true if valid, false otherwise
+function CSL.UIManager:ValidateCastCommands(castCommands, editorGroup)
+    if #castCommands == 0 then
+        self:SetEditorError(editorGroup, "commands", "At least one cast command is required.")
+        return false
+    end
+    return true
+end
+
+--- Save rotation from editor inputs
+-- @param nameInput The name input widget
+-- @param preCastInput The pre-cast commands input widget
+-- @param commandsInput The cast commands input widget
+-- @param resetAfterCombatCheckbox The reset checkbox widget
 function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox)
     if InCombatLockdown() then
-        print("|cFFFF0000Cannot save rotations while in combat. Try again after combat.|r")
+        print(CSL.COLORS.ERROR .. "Cannot save rotations while in combat. Try again after combat.|r")
         return
     end
 
@@ -653,43 +769,20 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
     local editorGroup = self.ManagementFrame.editorGroup
     self:ClearEditorErrors(editorGroup)
 
-    -- Validate name
-    if rotationName == "" then
-        self:SetEditorError(editorGroup, "name", "Rotation name cannot be empty.")
+    -- Validate inputs
+    local isNewRotation = not editorGroup.currentRotation
+    if not self:ValidateRotationName(rotationName, editorGroup, isNewRotation) then
         return
     end
 
-    if #rotationName > CSL.MAX_ROTATION_NAME_LENGTH then
-        self:SetEditorError(editorGroup, "name", "Rotation name must be " .. CSL.MAX_ROTATION_NAME_LENGTH .. " characters or less.")
+    local preCastCommands = CSL.Helpers.ParseCommands(preCastInput:GetText())
+    local castCommands = CSL.Helpers.ParseCommands(commandsInput:GetText())
+    
+    if not self:ValidateCastCommands(castCommands, editorGroup) then
         return
     end
 
-    -- Check for duplicate only when creating new (case-insensitive)
-    local existingRotationName = CSL:FindRotationCaseInsensitive(rotationName)
-    if not editorGroup.currentRotation and existingRotationName then
-        self:SetEditorError(editorGroup, "name", "Rotation '" .. existingRotationName .. "' already exists.")
-        return
-    end
-
-    -- Parse commands more efficiently
-    local function parseCommands(text)
-        local commands = {}
-        for line in (text or ""):gmatch("[^\r\n]+") do
-            local trimmed = line:trim()
-            if trimmed ~= "" then
-                table.insert(commands, trimmed)
-            end
-        end
-        return commands
-    end
-
-    local preCastCommands = parseCommands(preCastInput:GetText())
-    local castCommands = parseCommands(commandsInput:GetText())
-    if #castCommands == 0 then
-        self:SetEditorError(editorGroup, "commands", "At least one cast command is required.")
-        return
-    end
-
+    -- Build rotation configuration
     local rotationConfig = {
         preCastCommands = #preCastCommands > 0 and preCastCommands or nil,
         castCommands = castCommands,
@@ -700,6 +793,7 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
     local rotation = CSL:InitializeRotation(rotationName, rotationConfig)
     CSL:SaveRotationConfig(rotationName, rotationConfig)
 
+    -- Create or update button
     if not rotation.button then
         CSL:CreateButton(rotation)
     else
@@ -708,18 +802,16 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
 
     CSL:CreateOrUpdateMacro(rotation)
 
-    print("|cFF00FF00Rotation '" .. rotationName .. "' saved!|r")
+    print(CSL.COLORS.SUCCESS .. "Rotation '" .. rotationName .. "' saved!|r")
 
     self:RefreshRotationList()
-
-    -- Update editor to show the saved rotation with button preview
     self:ShowRotationEditor(rotationName)
 end
 
--- Delete rotation
+--- Delete rotation (shows confirmation dialog)
 function CSL.UIManager:DeleteRotation()
     if InCombatLockdown() then
-        print("|cFFFF0000Cannot delete rotations while in combat. Try again after combat.|r")
+        print(CSL.COLORS.ERROR .. "Cannot delete rotations while in combat. Try again after combat.|r")
         return
     end
 
@@ -729,9 +821,12 @@ function CSL.UIManager:DeleteRotation()
     end
 
     local rotationName = frame.editorGroup.currentRotation
-    StaticPopup_Show("CSL_CONFIRM_DELETE", rotationName, nil, rotationName)
+    if rotationName then
+        StaticPopup_Show("CSL_CONFIRM_DELETE", rotationName, nil, rotationName)
+    end
 end
 
+--- Register combat event watcher
 function CSL.UIManager:RegisterCombatWatcher()
     if self._combatWatcher then
         return
@@ -751,6 +846,7 @@ function CSL.UIManager:RegisterCombatWatcher()
     self._combatWatcher = watcher
 end
 
+--- Handle combat start - hide UI and mark for restoration
 function CSL.UIManager:OnCombatStart()
     local frame = self.ManagementFrame
     if not frame or not frame.frame or not frame.frame:IsShown() then
@@ -762,18 +858,13 @@ function CSL.UIManager:OnCombatStart()
         frame.escFrame:Hide()
     end
     frame:Hide()
-    print("|cFFFFD700CastSequenceLite hidden during combat. It will return after combat ends.|r")
+    print(CSL.COLORS.WARNING .. "CastSequenceLite hidden during combat. It will return after combat ends.|r")
 end
 
+--- Handle combat end - reset rotations and restore UI if needed
 function CSL.UIManager:OnCombatEnd()
     -- Reset rotation steps for rotations with resetAfterCombat enabled
-    for _, rotation in pairs(CSL.Rotations) do
-        if rotation.resetAfterCombat and rotation.button then
-            rotation.button:SetAttribute("step", 1)
-            -- Update macro for next click
-            CSL:CreateOrUpdateMacro(rotation)
-        end
-    end
+    self:ResetRotationsAfterCombat()
 
     local frame = self.ManagementFrame
     if not frame or not frame._restoreAfterCombat then
@@ -792,7 +883,17 @@ function CSL.UIManager:OnCombatEnd()
     end
 end
 
--- Toggle management frame
+--- Reset rotations that have resetAfterCombat enabled
+function CSL.UIManager:ResetRotationsAfterCombat()
+    for _, rotation in pairs(CSL.Rotations) do
+        if rotation.resetAfterCombat and rotation.button then
+            rotation.button:SetAttribute("step", 1)
+            CSL:CreateOrUpdateMacro(rotation)
+        end
+    end
+end
+
+--- Toggle the management frame visibility
 function CSL.UIManager:ToggleManagementFrame()
     local frame = self:CreateManagementFrame()
     if frame.frame:IsShown() then
