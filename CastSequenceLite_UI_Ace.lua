@@ -348,14 +348,84 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
 
     local editorGroup = frame.editorGroup
     editorGroup:ReleaseChildren()
+    
+    -- Clean up any existing button group from previous editor session
+    if frame.buttonGroup and frame.buttonGroup.frame then
+        frame.buttonGroup:ReleaseChildren()
+        if frame.buttonGroup.frame:GetParent() then
+            frame.buttonGroup.frame:Hide()
+            frame.buttonGroup.frame:SetParent(nil)
+        end
+        AceGUI:Release(frame.buttonGroup)
+        frame.buttonGroup = nil
+    end
+    
+    -- Use Fill layout - we'll manually position buttons over the scroll area
+    editorGroup:SetLayout("Fill")
 
-    -- Create editor scroll container
+    -- Create inner container for scrollable content (takes full space)
+    local editorContainer = AceGUI:Create("SimpleGroup")
+    editorContainer:SetLayout("Fill")
+    editorContainer:SetFullWidth(true)
+    editorContainer:SetFullHeight(true)
+    editorGroup:AddChild(editorContainer)
+    
+    -- Create button group (fixed at bottom, always visible) - manually positioned
+    local buttonGroup = AceGUI:Create("SimpleGroup")
+    buttonGroup:SetFullWidth(true)
+    buttonGroup:SetLayout("Flow")
+    buttonGroup:SetHeight(35)  -- Fixed height for buttons
+    buttonGroup:SetAutoAdjustHeight(false)  -- Don't auto-adjust, keep fixed height
+    -- Don't add to editorGroup - we'll manually position it
+    frame.buttonGroup = buttonGroup  -- Store reference for cleanup
+    
+    -- Manually position button group at bottom and constrain editorContainer
+    local function adjustLayout()
+        if editorGroup.content and editorContainer.frame and buttonGroup.frame then
+            local contentHeight = editorGroup.content:GetHeight()
+            local buttonHeight = 35  -- Fixed button group height
+            
+            -- Position button group at bottom of editorGroup content (not as a child)
+            buttonGroup.frame:SetParent(editorGroup.content)
+            buttonGroup.frame:ClearAllPoints()
+            buttonGroup.frame:SetPoint("BOTTOMLEFT", editorGroup.content, "BOTTOMLEFT", 0, 0)
+            buttonGroup.frame:SetPoint("BOTTOMRIGHT", editorGroup.content, "BOTTOMRIGHT", 0, 0)
+            buttonGroup.frame:SetHeight(buttonHeight)
+            buttonGroup.frame:SetFrameLevel(editorGroup.content:GetFrameLevel() + 10)
+            buttonGroup.frame:Show()
+            
+            -- Also ensure content frame is properly sized
+            if buttonGroup.content then
+                buttonGroup.content:SetHeight(buttonHeight)
+            end
+            
+            -- Constrain editorContainer to leave space for buttons
+            editorContainer.frame:ClearAllPoints()
+            editorContainer.frame:SetPoint("TOPLEFT", editorGroup.content, "TOPLEFT", 0, 0)
+            editorContainer.frame:SetPoint("TOPRIGHT", editorGroup.content, "TOPRIGHT", 0, 0)
+            editorContainer.frame:SetPoint("BOTTOMLEFT", editorGroup.content, "BOTTOMLEFT", 0, buttonHeight)
+            editorContainer.frame:SetPoint("BOTTOMRIGHT", editorGroup.content, "BOTTOMRIGHT", 0, buttonHeight)
+        end
+    end
+    
+    -- Hook into editorGroup content frame resize
+    if editorGroup.content then
+        editorGroup.content:SetScript("OnSizeChanged", adjustLayout)
+    end
+    
+    -- Also adjust after layout completes
+    local adjustFrame = CreateFrame("Frame")
+    adjustFrame:SetScript("OnUpdate", function(self)
+        self:SetScript("OnUpdate", nil)  -- Run only once
+        adjustLayout()
+    end)
+    
+    -- Create editor scroll container inside the container
     local editorScroll = AceGUI:Create("ScrollFrame")
     editorScroll:SetLayout("Flow")
     editorScroll:SetFullWidth(true)
     editorScroll:SetFullHeight(true)
-    editorGroup:AddChild(editorScroll)
-    editorGroup:DoLayout()
+    editorContainer:AddChild(editorScroll)
 
     -- Name input
     local nameInput = AceGUI:Create("EditBox")
@@ -428,11 +498,8 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     resetSpacer:SetText(" ")
     editorScroll:AddChild(resetSpacer)
 
-    -- Button group
-    local buttonGroup = AceGUI:Create("SimpleGroup")
-    buttonGroup:SetFullWidth(true)
-    buttonGroup:SetLayout("Flow")
-    editorScroll:AddChild(buttonGroup)
+    -- Clear button group before adding buttons (in case of any leftover children)
+    buttonGroup:ReleaseChildren()
 
     -- Save button
     local saveBtn = AceGUI:Create("Button")
