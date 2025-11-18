@@ -664,9 +664,10 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
         return
     end
 
-    -- Check for duplicate only when creating new
-    if not editorGroup.currentRotation and CSL.Rotations[rotationName] then
-        self:SetEditorError(editorGroup, "name", "Rotation '" .. rotationName .. "' already exists.")
+    -- Check for duplicate only when creating new (case-insensitive)
+    local existingRotationName = CSL:FindRotationCaseInsensitive(rotationName)
+    if not editorGroup.currentRotation and existingRotationName then
+        self:SetEditorError(editorGroup, "name", "Rotation '" .. existingRotationName .. "' already exists.")
         return
     end
 

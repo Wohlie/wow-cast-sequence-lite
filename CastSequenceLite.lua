@@ -44,6 +44,23 @@ function CSL:GetDatabase()
     return self.DB
 end
 
+-- Find a rotation by name (case-insensitive)
+-- Returns the actual rotation name (with original case) if found, or nil
+function CSL:FindRotationCaseInsensitive(rotationName)
+    if not rotationName then
+        return nil
+    end
+
+    local lowerName = string.lower(rotationName)
+    for existingName, _ in pairs(self.Rotations) do
+        if string.lower(existingName) == lowerName then
+            return existingName
+        end
+    end
+
+    return nil
+end
+
 -- Initialize a single rotation from defaults
 function CSL:InitializeRotation(rotationName, rotationConfig)
     local rotation = self.Rotations[rotationName] or {}
