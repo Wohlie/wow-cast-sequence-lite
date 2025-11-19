@@ -696,11 +696,10 @@ function CSL.UIManager:CreateRotationListDragButton(rotationName, container)
 
     button:RegisterForDrag("LeftButton")
     button:SetScript("OnDragStart", function()
-        local macroName = "CSL_" .. rotationName
-        local macroIdx = GetMacroIndexByName(macroName)
+        local macroIdx = GetMacroIndexByName(rotationName)
         if not macroIdx or macroIdx == 0 then
             CSL:CreateOrUpdateMacro(rotation)
-            macroIdx = GetMacroIndexByName(macroName)
+            macroIdx = GetMacroIndexByName(rotationName)
         end
 
         if macroIdx and macroIdx > 0 then
@@ -757,11 +756,10 @@ function CSL.UIManager:UpdateButtonPreview(rotationName, container)
 
     button:RegisterForDrag("LeftButton")
     button:SetScript("OnDragStart", function()
-        local macroName = "CSL_" .. rotationName
-        local macroIdx = GetMacroIndexByName(macroName)
+        local macroIdx = GetMacroIndexByName(rotationName)
         if not macroIdx or macroIdx == 0 then
             CSL:CreateOrUpdateMacro(rotation)
-            macroIdx = GetMacroIndexByName(macroName)
+            macroIdx = GetMacroIndexByName(rotationName)
         end
 
         if macroIdx and macroIdx > 0 then
@@ -810,11 +808,10 @@ function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRota
         end
         
         -- Check if a macro with this name already exists (manually created by user)
-        local macroName = CSL.MACRO_PREFIX .. rotationName
-        local macroIndex = GetMacroIndexByName(macroName)
+        local macroIndex = GetMacroIndexByName(rotationName)
         if macroIndex > 0 then
             self:SetEditorError(editorGroup, "name", 
-                "Macro '" .. macroName .. "' already exists. Delete it manually or choose a different name.")
+                "Macro '" .. rotationName .. "' already exists. Delete it manually or choose a different name.")
             return false
         end
     end

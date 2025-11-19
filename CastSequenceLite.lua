@@ -11,7 +11,7 @@ CSL.VERSION = "1.0.0"
 CSL.MACRO_PREFIX = "CSL_"
 CSL.MACRO_NAME = "CastSeqLite"
 CSL.MAX_MACRO_NAME_LENGTH = 16
-CSL.MAX_ROTATION_NAME_LENGTH = CSL.MAX_MACRO_NAME_LENGTH - #CSL.MACRO_PREFIX
+CSL.MAX_ROTATION_NAME_LENGTH = CSL.MAX_MACRO_NAME_LENGTH
 CSL.MAX_CHARACTER_MACROS = MAX_CHARACTER_MACROS or 18
 CSL.MAX_ACCOUNT_MACROS = MAX_ACCOUNT_MACROS or 120
 
@@ -112,11 +112,10 @@ function CSL:DeleteRotation(rotationName)
     end
 
     -- Delete macro
-    local macroName = self.MACRO_PREFIX .. rotationName
-    local macroIndex = GetMacroIndexByName(macroName)
+    local macroIndex = GetMacroIndexByName(rotationName)
     if macroIndex > 0 then
         DeleteMacro(macroIndex)
-        print(CSL.COLORS.SUCCESS .. "Macro '" .. macroName .. "' deleted!|r")
+        print(CSL.COLORS.SUCCESS .. "Macro '" .. rotationName .. "' deleted!|r")
     end
 
     -- Cleanup button
@@ -152,14 +151,13 @@ end
 -- @param rotation The rotation object
 -- @return The created button frame
 function CSL:CreateButton(rotation)
-    local macroName = self.MACRO_PREFIX .. rotation.name
     local buttonName = "CSLButton_" .. rotation.name
     local button = CreateFrame("Button", buttonName, UIParent, "SecureActionButtonTemplate,SecureHandlerBaseTemplate")
     button:Hide()
 
     -- Store references
     button.rotationName = rotation.name
-    button.macroName = macroName
+    button.macroName = rotation.name
 
     -- Configure button attributes
     button:SetAttribute("type", "macro")
@@ -298,15 +296,14 @@ end
 --- Create or update the macro for a rotation
 -- @param rotation The rotation object
 function CSL:CreateOrUpdateMacro(rotation)
-    local macroName = self.MACRO_PREFIX .. rotation.name
-    local macroIndex = GetMacroIndexByName(macroName)
+    local macroIndex = GetMacroIndexByName(rotation.name)
     local macroBody = self:BuildMacroText(rotation)
 
     if macroIndex == 0 then
         -- Create new macro
         local _, numCharacterMacros = GetNumMacros()
         if numCharacterMacros < self.MAX_CHARACTER_MACROS then
-            CreateMacro(macroName, 1, macroBody, 1)
+            CreateMacro(rotation.name, 1, macroBody, 1)
         else
             print(CSL.COLORS.ERROR .. "Too many macros! Delete some and /reload|r")
         end
