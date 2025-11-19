@@ -53,7 +53,7 @@ end
 -- Hook into UIErrorsFrame to suppress messages when needed
 if UIErrorsFrame and not CSL.Error.originalUIErrorsFrameAddMessage then
     CSL.Error.originalUIErrorsFrameAddMessage = UIErrorsFrame.AddMessage
-    
+
     function UIErrorsFrame:AddMessage(message, r, g, b, id, holdTime, ...)
         if CSL.Error.hide then
             return

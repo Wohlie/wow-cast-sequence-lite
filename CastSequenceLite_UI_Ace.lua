@@ -147,7 +147,7 @@ function CSL.UIManager:SetActiveRotationRow(rotationName)
                 -- Remove backdrop when row is not active
                 rowFrame:SetBackdrop(nil)
             end
-            
+
             -- Also ensure dragContainer doesn't have a backdrop
             if rowData.dragContainer and rowData.dragContainer.frame then
                 rowData.dragContainer.frame:SetBackdrop(nil)
@@ -169,12 +169,12 @@ function CSL.UIManager:CreateManagementFrame()
     frame:SetLayout("Fill")
     frame:SetWidth(ui.FRAME_WIDTH)
     frame:SetHeight(ui.FRAME_HEIGHT)
-    
+
     if frame.frame then
         frame.frame:SetFrameStrata("DIALOG")
         frame.frame:SetToplevel(true)
     end
-    
+
     frame:SetCallback("OnClose", function(widget)
         widget:Hide()
         if widget.escFrame and widget.escFrame:IsShown() then
@@ -205,7 +205,7 @@ function CSL.UIManager:CreateManagementFrame()
     frame.editorGroup = rightGroup
     frame.rotationRows = {}
     frame.activeRotation = nil
-    
+
     rightGroup:SetCallback("OnShow", function()
         local editorGroup = frame.editorGroup
         if editorGroup and editorGroup.nameInput and editorGroup.nameInput.SetFocus then
@@ -361,7 +361,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
 
     local editorGroup = frame.editorGroup
     editorGroup:ReleaseChildren()
-    
+
     -- Clean up any existing button group from previous editor session
     if frame.buttonGroup and frame.buttonGroup.frame then
         frame.buttonGroup:ReleaseChildren()
@@ -372,7 +372,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
         AceGUI:Release(frame.buttonGroup)
         frame.buttonGroup = nil
     end
-    
+
     -- Use Fill layout - we'll manually position buttons over the scroll area
     editorGroup:SetLayout("Fill")
 
@@ -382,7 +382,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     editorContainer:SetFullWidth(true)
     editorContainer:SetFullHeight(true)
     editorGroup:AddChild(editorContainer)
-    
+
     -- Create button group (fixed at bottom, always visible) - manually positioned
     local buttonGroup = AceGUI:Create("SimpleGroup")
     buttonGroup:SetFullWidth(true)
@@ -391,13 +391,13 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     buttonGroup:SetAutoAdjustHeight(false)  -- Don't auto-adjust, keep fixed height
     -- Don't add to editorGroup - we'll manually position it
     frame.buttonGroup = buttonGroup  -- Store reference for cleanup
-    
+
     -- Manually position button group at bottom and constrain editorContainer
     local function adjustLayout()
         if editorGroup.content and editorContainer.frame and buttonGroup.frame then
             local contentHeight = editorGroup.content:GetHeight()
             local buttonHeight = 35  -- Fixed button group height
-            
+
             -- Position button group at bottom of editorGroup content (not as a child)
             buttonGroup.frame:SetParent(editorGroup.content)
             buttonGroup.frame:ClearAllPoints()
@@ -406,12 +406,12 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
             buttonGroup.frame:SetHeight(buttonHeight)
             buttonGroup.frame:SetFrameLevel(editorGroup.content:GetFrameLevel() + 10)
             buttonGroup.frame:Show()
-            
+
             -- Also ensure content frame is properly sized
             if buttonGroup.content then
                 buttonGroup.content:SetHeight(buttonHeight)
             end
-            
+
             -- Constrain editorContainer to leave space for buttons
             editorContainer.frame:ClearAllPoints()
             editorContainer.frame:SetPoint("TOPLEFT", editorGroup.content, "TOPLEFT", 0, 0)
@@ -420,19 +420,19 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
             editorContainer.frame:SetPoint("BOTTOMRIGHT", editorGroup.content, "BOTTOMRIGHT", 0, buttonHeight)
         end
     end
-    
+
     -- Hook into editorGroup content frame resize
     if editorGroup.content then
         editorGroup.content:SetScript("OnSizeChanged", adjustLayout)
     end
-    
+
     -- Also adjust after layout completes
     local adjustFrame = CreateFrame("Frame")
     adjustFrame:SetScript("OnUpdate", function(self)
         self:SetScript("OnUpdate", nil)  -- Run only once
         adjustLayout()
     end)
-    
+
     -- Create editor scroll container inside the container
     local editorScroll = AceGUI:Create("ScrollFrame")
     editorScroll:SetLayout("Flow")
@@ -806,8 +806,8 @@ function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRota
     end
 
     if #rotationName > CSL.MAX_ROTATION_NAME_LENGTH then
-        self:SetEditorError(editorGroup, "name", 
-            "Rotation name must be " .. CSL.MAX_ROTATION_NAME_LENGTH .. " characters or less.")
+        self:SetEditorError(editorGroup, "name",
+                "Rotation name must be " .. CSL.MAX_ROTATION_NAME_LENGTH .. " characters or less.")
         return false
     end
 
@@ -815,16 +815,16 @@ function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRota
     if isNewRotation then
         local existingRotationName = CSL:FindRotationCaseInsensitive(rotationName)
         if existingRotationName then
-            self:SetEditorError(editorGroup, "name", 
-                "Rotation '" .. existingRotationName .. "' already exists.")
+            self:SetEditorError(editorGroup, "name",
+                    "Rotation '" .. existingRotationName .. "' already exists.")
             return false
         end
-        
+
         -- Check if a macro with this name already exists (manually created by user)
         local macroIndex = GetMacroIndexByName(rotationName)
         if macroIndex > 0 then
-            self:SetEditorError(editorGroup, "name", 
-                "Macro '" .. rotationName .. "' already exists. Delete it manually or choose a different name.")
+            self:SetEditorError(editorGroup, "name",
+                    "Macro '" .. rotationName .. "' already exists. Delete it manually or choose a different name.")
             return false
         end
     end
@@ -869,7 +869,7 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
 
     local preCastCommands = CSL.Helpers.ParseCommands(preCastInput:GetText())
     local castCommands = CSL.Helpers.ParseCommands(commandsInput:GetText())
-    
+
     if not self:ValidateCastCommands(castCommands, editorGroup) then
         return
     end

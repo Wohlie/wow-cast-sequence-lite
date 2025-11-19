@@ -129,7 +129,6 @@ function CSL:DeleteRotation(rotationName)
     self:GetDatabase().rotations[rotationName] = nil
 end
 
-
 --- Initialize the addon
 function CSL:Initialize()
     local db = self:GetDatabase()
@@ -318,7 +317,6 @@ function CSL:CreateOrUpdateMacro(rotation)
     end
 end
 
-
 --- Register slash commands
 function CSL:RegisterSlashCommands()
     SLASH_CASTSEQLITE1 = "/csl"
@@ -338,7 +336,6 @@ function CSL:PrintWelcome()
         self.welcomeShown = true
     end
 end
-
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")

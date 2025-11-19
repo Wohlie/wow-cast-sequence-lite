@@ -1,6 +1,5 @@
 local addonName, CSL = ...
 
-
 CSL.Helpers = CSL.Helpers or {}
 
 -- Constants
