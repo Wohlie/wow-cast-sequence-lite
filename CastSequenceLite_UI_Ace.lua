@@ -106,7 +106,7 @@ end
 --- Ensure a row frame has the proper backdrop
 -- @param rowFrame The row frame to style
 function CSL.UIManager:EnsureRowBackdrop(rowFrame)
-    if not rowFrame or rowFrame._cslHasBackdrop then
+    if not rowFrame or rowFrame:GetBackdrop() then
         return
     end
 
@@ -120,7 +120,6 @@ function CSL.UIManager:EnsureRowBackdrop(rowFrame)
     })
     rowFrame:SetBackdropColor(0, 0, 0, 0)
     rowFrame:SetBackdropBorderColor(0, 0, 0, 0)
-    rowFrame._cslHasBackdrop = true
 end
 
 --- Set the active rotation row highlight
@@ -135,22 +134,24 @@ function CSL.UIManager:SetActiveRotationRow(rotationName)
     for name, rowData in pairs(frame.rotationRows) do
         local rowFrame = rowData.group and rowData.group.frame
         if rowFrame then
-            self:EnsureRowBackdrop(rowFrame)
             local isActive = rotationName and name == rotationName
-            local bg = colors.ACTIVE_BG
-            local border = colors.ACTIVE_BORDER
+            if isActive then
+                -- Only apply backdrop when row is active
+                self:EnsureRowBackdrop(rowFrame)
+                local bg = colors.ACTIVE_BG
+                local border = colors.ACTIVE_BORDER
+
+                rowFrame:SetBackdropColor(bg.r, bg.g, bg.b, bg.a)
+                rowFrame:SetBackdropBorderColor(border.r, border.g, border.b)
+            else
+                -- Remove backdrop when row is not active
+                rowFrame:SetBackdrop(nil)
+            end
             
-            rowFrame:SetBackdropColor(
-                isActive and bg.r or 0,
-                isActive and bg.g or 0,
-                isActive and bg.b or 0,
-                isActive and bg.a or 0
-            )
-            rowFrame:SetBackdropBorderColor(
-                isActive and border.r or 0,
-                isActive and border.g or 0,
-                isActive and border.b or 0
-            )
+            -- Also ensure dragContainer doesn't have a backdrop
+            if rowData.dragContainer and rowData.dragContainer.frame then
+                rowData.dragContainer.frame:SetBackdrop(nil)
+            end
         end
     end
 end
@@ -310,6 +311,18 @@ function CSL.UIManager:RefreshRotationList()
     local frame = self.ManagementFrame
     if not frame or not frame.leftScroll then
         return
+    end
+
+    -- Clear all backdrops from existing rows before releasing them
+    if frame.rotationRows then
+        for name, rowData in pairs(frame.rotationRows) do
+            if rowData.group and rowData.group.frame then
+                rowData.group.frame:SetBackdrop(nil)
+            end
+            if rowData.dragContainer and rowData.dragContainer.frame then
+                rowData.dragContainer.frame:SetBackdrop(nil)
+            end
+        end
     end
 
     local leftScroll = frame.leftScroll
