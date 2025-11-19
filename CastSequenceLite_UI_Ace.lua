@@ -808,6 +808,15 @@ function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRota
                 "Rotation '" .. existingRotationName .. "' already exists.")
             return false
         end
+        
+        -- Check if a macro with this name already exists (manually created by user)
+        local macroName = CSL.MACRO_PREFIX .. rotationName
+        local macroIndex = GetMacroIndexByName(macroName)
+        if macroIndex > 0 then
+            self:SetEditorError(editorGroup, "name", 
+                "Macro '" .. macroName .. "' already exists. Delete it manually or choose a different name.")
+            return false
+        end
     end
 
     return true
