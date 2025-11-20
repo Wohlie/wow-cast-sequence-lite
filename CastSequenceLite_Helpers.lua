@@ -91,7 +91,8 @@ function CSL.Helpers.CopyRotationConfig(rotationConfig)
     return {
         preCastCommands = rotationConfig.preCastCommands and { unpack(rotationConfig.preCastCommands) } or {},
         castCommands = rotationConfig.castCommands and { unpack(rotationConfig.castCommands) } or {},
-        resetAfterCombat = rotationConfig.resetAfterCombat or false
+        resetAfterCombat = rotationConfig.resetAfterCombat or false,
+        autoSelectTarget = rotationConfig.autoSelectTarget or "combat"
     }
 end
 

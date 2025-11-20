@@ -47,6 +47,18 @@ local I18N = {
     ["Reset to first step after combat"] = {
         deDE = "Nach dem Kampf auf den ersten Schritt zurücksetzen",
     },
+    ["Auto select next target"] = {
+        deDE = "Nächstes Ziel automatisch wählen",
+    },
+    ["Always"] = {
+        deDE = "Immer",
+    },
+    ["In Combat"] = {
+        deDE = "Im Kampf",
+    },
+    ["Never"] = {
+        deDE = "Nie",
+    },
     ["Save"] = {
         deDE = "Speichern",
     },

@@ -93,6 +93,19 @@ function CSL:InitializeRotation(rotationName, rotationConfig)
     rotation.castCommands = { unpack(rotationConfig.castCommands) }
     rotation.currentStep = 1
     rotation.resetAfterCombat = rotationConfig.resetAfterCombat or false
+    
+    -- Migration: Convert old requireTarget boolean to autoSelectTarget
+    if rotationConfig.autoSelectTarget then
+        rotation.autoSelectTarget = rotationConfig.autoSelectTarget
+    elseif rotationConfig.requireTarget ~= nil then
+        if rotationConfig.requireTarget then
+            rotation.autoSelectTarget = "never"
+        else
+            rotation.autoSelectTarget = "always"
+        end
+    else
+        rotation.autoSelectTarget = "combat"
+    end
 
     -- Precompute spell names for caching
     for _, castCommand in ipairs(rotation.castCommands) do
@@ -209,6 +222,14 @@ function CSL:UpdateButtonAttributes(rotation, button)
         button:SetAttribute("spellName" .. i, CSL.Helpers.GetSpellName(castCommand))
     end
 
+    -- Set pre-cast text and options
+    local preCastText = ""
+    if rotation.preCastCommands and #rotation.preCastCommands > 0 then
+        preCastText = table.concat(rotation.preCastCommands, "\n")
+    end
+    button:SetAttribute("preCastText", preCastText)
+    button:SetAttribute("autoSelectTarget", rotation.autoSelectTarget)
+
     -- Clean up old attributes if count decreased
     if previousCount > newCount then
         for i = newCount + 1, previousCount do
@@ -232,14 +253,42 @@ function CSL:SetupSecureClickHandler(rotation, button)
         return
     end
 
-    local template = self:GetMacroTextTemplate(rotation)
-    local secureCode = string.format([[
+    local secureCode = [[
         local step = self:GetAttribute('step') or 1
         local numCastCommands = self:GetAttribute('numCastCommands') or 1
+        local autoSelectTarget = self:GetAttribute('autoSelectTarget')
+
+        -- Handle auto selection logic
+        local shouldExecute = true
+        
+        if autoSelectTarget == "never" then
+             -- Never auto select: Require target always
+             if SecureCmdOptionParse("[@target,exists] 1; 0") == "0" then
+                 shouldExecute = false
+             end
+        elseif autoSelectTarget == "combat" or autoSelectTarget == nil then
+             -- In Combat (Default): Require target ONLY when out of combat
+             if SecureCmdOptionParse("[combat] 1; [@target,exists] 1; 0") == "0" then
+                 shouldExecute = false
+             end
+        end
+        -- "always" falls through (shouldExecute remains true)
+
+        if not shouldExecute then
+             self:SetAttribute('macrotext', "")
+             return
+        end
         
         local castCommand = self:GetAttribute('castCommand' .. step)
+        local preCastText = self:GetAttribute('preCastText')
+        
         if castCommand then
-            self:SetAttribute('macrotext', "%s")
+            local text = "#showtooltip"
+            if preCastText and preCastText ~= "" then
+                text = text .. "\n" .. preCastText
+            end
+            text = text .. "\n" .. castCommand
+            self:SetAttribute('macrotext', text)
         end
         
         -- Increment step for NEXT click
@@ -248,7 +297,7 @@ function CSL:SetupSecureClickHandler(rotation, button)
             step = 1
         end
         self:SetAttribute('step', step)
-    ]], template)
+    ]]
 
     button:WrapScript(button, "OnClick", secureCode)
 end

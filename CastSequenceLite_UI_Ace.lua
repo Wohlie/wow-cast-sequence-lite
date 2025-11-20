@@ -506,6 +506,18 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     resetAfterCombatCheckbox:SetFullWidth(true)
     editorScroll:AddChild(resetAfterCombatCheckbox)
 
+    -- Auto select target dropdown
+    local autoSelectDropdown = AceGUI:Create("Dropdown")
+    autoSelectDropdown:SetLabel(CSL.L["Auto select next target"])
+    autoSelectDropdown:SetList({
+        ["always"] = CSL.L["Always"],
+        ["combat"] = CSL.L["In Combat"],
+        ["never"] = CSL.L["Never"]
+    })
+    autoSelectDropdown:SetValue("combat") -- Default
+    autoSelectDropdown:SetFullWidth(true)
+    editorScroll:AddChild(autoSelectDropdown)
+
     local resetSpacer = AceGUI:Create("Label")
     resetSpacer:SetFullWidth(true)
     resetSpacer:SetText(" ")
@@ -519,7 +531,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     saveBtn:SetText(CSL.L["Save"])
     saveBtn:SetWidth(100)
     saveBtn:SetCallback("OnClick", function()
-        CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox)
+        CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox, autoSelectDropdown)
     end)
     buttonGroup:AddChild(saveBtn)
 
@@ -548,7 +560,8 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
         name = nameInput,
         preCast = preCastInput,
         commands = commandsInput,
-        resetAfterCombat = resetAfterCombatCheckbox
+        resetAfterCombat = resetAfterCombatCheckbox,
+        autoSelect = autoSelectDropdown
     }
     editorGroup.errorLabels = {
         name = nameErrorLabel,
@@ -561,6 +574,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     editorGroup.preCastInput = preCastInput
     editorGroup.commandsInput = commandsInput
     editorGroup.resetAfterCombatCheckbox = resetAfterCombatCheckbox
+    editorGroup.autoSelectDropdown = autoSelectDropdown
     editorGroup.nameErrorLabel = nameErrorLabel
     editorGroup.preCastErrorLabel = preCastErrorLabel
     editorGroup.commandsErrorLabel = commandsErrorLabel
@@ -598,6 +612,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
         preCastInput:SetText(rotation.preCastCommands and table.concat(rotation.preCastCommands, "\n") or "")
         commandsInput:SetText(table.concat(rotation.castCommands, "\n"))
         resetAfterCombatCheckbox:SetValue(rotation.resetAfterCombat or false)
+        autoSelectDropdown:SetValue(rotation.autoSelectTarget or "combat")
         if editorGroup.buttonContainer then
             self:UpdateButtonPreview(rotationName, editorGroup.buttonContainer)
         end
@@ -607,6 +622,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
         preCastInput:SetText("")
         commandsInput:SetText("")
         resetAfterCombatCheckbox:SetValue(false)
+        autoSelectDropdown:SetValue("combat")
         editorGroup.buttonContainer = nil
     end
 
@@ -849,7 +865,8 @@ end
 -- @param preCastInput The pre-cast commands input widget
 -- @param commandsInput The cast commands input widget
 -- @param resetAfterCombatCheckbox The reset checkbox widget
-function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox)
+-- @param autoSelectDropdown The auto select dropdown widget
+function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox, autoSelectDropdown)
     if InCombatLockdown() then
         print(CSL.COLORS.ERROR .. CSL.L["Cannot save rotations while in combat. Try again after combat."] .. "|r")
         return
@@ -878,7 +895,8 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
     local rotationConfig = {
         preCastCommands = #preCastCommands > 0 and preCastCommands or nil,
         castCommands = castCommands,
-        resetAfterCombat = resetAfterCombatCheckbox:GetValue()
+        resetAfterCombat = resetAfterCombatCheckbox:GetValue(),
+        autoSelectTarget = autoSelectDropdown:GetValue()
     }
 
     -- Initialize or update rotation
