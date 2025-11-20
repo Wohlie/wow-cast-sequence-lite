@@ -9,9 +9,9 @@ local ERROR_SOUND_ID = "igQuestFailed"
 local ESC_FRAME_NAME = "CSLManagementFrame"
 
 StaticPopupDialogs["CSL_CONFIRM_DELETE"] = {
-    text = "Are you sure you want to delete the rotation '%s'?",
-    button1 = "Yes",
-    button2 = "No",
+    text = CSL.L["Are you sure you want to delete the rotation '%s'?"],
+    button1 = CSL.L["Yes"],
+    button2 = CSL.L["No"],
     OnAccept = function(self, data)
         local rotationName = data or (self and self.data)
         if not rotationName then
@@ -165,7 +165,7 @@ function CSL.UIManager:CreateManagementFrame()
 
     local ui = CSL.UI
     local frame = AceGUI:Create("Frame")
-    frame:SetTitle("CastSequenceLite - Rotation Manager")
+    frame:SetTitle(CSL.L["CastSequenceLite - Rotation Manager"])
     frame:SetLayout("Fill")
     frame:SetWidth(ui.FRAME_WIDTH)
     frame:SetHeight(ui.FRAME_HEIGHT)
@@ -264,7 +264,7 @@ end
 function CSL.UIManager:CreateLeftPanel()
     local ui = CSL.UI
     local leftGroup = AceGUI:Create("InlineGroup")
-    leftGroup:SetTitle("Rotations")
+    leftGroup:SetTitle(CSL.L["Rotations"])
     leftGroup:SetLayout("Fill")
     leftGroup:SetRelativeWidth(ui.LEFT_PANEL_WIDTH_RATIO)
     leftGroup:SetFullHeight(true)
@@ -285,7 +285,7 @@ end
 -- @param parent The parent widget
 function CSL.UIManager:AddNewRotationButton(parent)
     local newBtn = AceGUI:Create("Button")
-    newBtn:SetText("+ New Rotation")
+    newBtn:SetText(CSL.L["+ New Rotation"])
     newBtn:SetFullWidth(true)
     newBtn:SetCallback("OnClick", function()
         CSL.UIManager:ShowRotationEditor(nil)
@@ -298,7 +298,7 @@ end
 function CSL.UIManager:CreateRightPanel()
     local ui = CSL.UI
     local rightGroup = AceGUI:Create("InlineGroup")
-    rightGroup:SetTitle("Rotation Editor")
+    rightGroup:SetTitle(CSL.L["Rotation Editor"])
     rightGroup:SetLayout("Fill")
     rightGroup:SetFullWidth(true)
     rightGroup:SetRelativeWidth(ui.RIGHT_PANEL_WIDTH_RATIO)
@@ -442,7 +442,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
 
     -- Name input
     local nameInput = AceGUI:Create("EditBox")
-    nameInput:SetLabel("Rotation Name:")
+    nameInput:SetLabel(CSL.L["Rotation Name:"])
     nameInput:SetFullWidth(true)
     nameInput:SetMaxLetters(CSL.MAX_ROTATION_NAME_LENGTH)
     nameInput:DisableButton(true)
@@ -461,7 +461,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
 
     -- PreCast input (multi-line editor, 50% height of cast commands)
     local preCastInput = AceGUI:Create("MultiLineEditBox")
-    preCastInput:SetLabel("Pre-Cast Commands (optional, one per line):")
+    preCastInput:SetLabel(CSL.L["Pre-Cast Commands (optional, one per line):"])
     preCastInput:SetFullWidth(true)
     preCastInput:SetNumLines(5)
     preCastInput:SetMaxLetters(255)
@@ -481,7 +481,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
 
     -- Cast sequence input
     local commandsInput = AceGUI:Create("MultiLineEditBox")
-    commandsInput:SetLabel("Cast Commands (one per line):")
+    commandsInput:SetLabel(CSL.L["Cast Commands (one per line):"])
     commandsInput:SetFullWidth(true)
     commandsInput:SetNumLines(7)
     commandsInput:SetMaxLetters(0)
@@ -501,7 +501,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
 
     -- Reset after combat checkbox
     local resetAfterCombatCheckbox = AceGUI:Create("CheckBox")
-    resetAfterCombatCheckbox:SetLabel("Reset to first step after combat")
+    resetAfterCombatCheckbox:SetLabel(CSL.L["Reset to first step after combat"])
     resetAfterCombatCheckbox:SetValue(false)
     resetAfterCombatCheckbox:SetFullWidth(true)
     editorScroll:AddChild(resetAfterCombatCheckbox)
@@ -516,7 +516,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
 
     -- Save button
     local saveBtn = AceGUI:Create("Button")
-    saveBtn:SetText("Save")
+    saveBtn:SetText(CSL.L["Save"])
     saveBtn:SetWidth(100)
     saveBtn:SetCallback("OnClick", function()
         CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox)
@@ -525,7 +525,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
 
     -- Cancel button
     local cancelBtn = AceGUI:Create("Button")
-    cancelBtn:SetText("Cancel")
+    cancelBtn:SetText(CSL.L["Cancel"])
     cancelBtn:SetWidth(100)
     cancelBtn:SetCallback("OnClick", function()
         CSL.UIManager:ShowRotationEditor(nil)
@@ -535,7 +535,7 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     -- Delete button (only for existing rotations)
     if rotationName then
         local deleteBtn = AceGUI:Create("Button")
-        deleteBtn:SetText("Delete")
+        deleteBtn:SetText(CSL.L["Delete"])
         deleteBtn:SetWidth(100)
         deleteBtn:SetCallback("OnClick", function()
             CSL.UIManager:DeleteRotation()
@@ -722,7 +722,7 @@ function CSL.UIManager:CreateRotationListDragButton(rotationName, container)
 
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:SetText("Drag to place '" .. rotationName .. "' on your action bar", 1, 1, 1, true)
+        GameTooltip:SetText(string.format(CSL.L["Drag to place '%s' on your action bar"], rotationName), 1, 1, 1, true)
     end)
     button:SetScript("OnLeave", GameTooltip_Hide)
 
@@ -795,19 +795,19 @@ end
 -- @return true if valid, false otherwise
 function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRotation)
     if rotationName == "" then
-        self:SetEditorError(editorGroup, "name", "Rotation name cannot be empty.")
+        self:SetEditorError(editorGroup, "name", CSL.L["Rotation name cannot be empty."])
         return false
     end
 
     -- Check for invalid characters (only a-z, A-Z, 0-9, _, and - are allowed)
     if rotationName:match("[^a-zA-Z0-9_%-]") then
-        self:SetEditorError(editorGroup, "name", "Rotation name can only contain letters, numbers, underscores, and hyphens.")
+        self:SetEditorError(editorGroup, "name", CSL.L["Rotation name can only contain letters, numbers, underscores, and hyphens."])
         return false
     end
 
     if #rotationName > CSL.MAX_ROTATION_NAME_LENGTH then
         self:SetEditorError(editorGroup, "name",
-                "Rotation name must be " .. CSL.MAX_ROTATION_NAME_LENGTH .. " characters or less.")
+                string.format(CSL.L["Rotation name must be %d characters or less."], CSL.MAX_ROTATION_NAME_LENGTH))
         return false
     end
 
@@ -816,7 +816,7 @@ function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRota
         local existingRotationName = CSL:FindRotationCaseInsensitive(rotationName)
         if existingRotationName then
             self:SetEditorError(editorGroup, "name",
-                    "Rotation '" .. existingRotationName .. "' already exists.")
+                    string.format(CSL.L["Rotation '%s' already exists."], existingRotationName))
             return false
         end
 
@@ -824,7 +824,7 @@ function CSL.UIManager:ValidateRotationName(rotationName, editorGroup, isNewRota
         local macroIndex = GetMacroIndexByName(rotationName)
         if macroIndex > 0 then
             self:SetEditorError(editorGroup, "name",
-                    "Macro '" .. rotationName .. "' already exists. Delete it manually or choose a different name.")
+                    string.format(CSL.L["Macro '%s' already exists. Delete it manually or choose a different name."], rotationName))
             return false
         end
     end
@@ -838,7 +838,7 @@ end
 -- @return true if valid, false otherwise
 function CSL.UIManager:ValidateCastCommands(castCommands, editorGroup)
     if #castCommands == 0 then
-        self:SetEditorError(editorGroup, "commands", "At least one cast command is required.")
+        self:SetEditorError(editorGroup, "commands", CSL.L["At least one cast command is required."])
         return false
     end
     return true
@@ -851,7 +851,7 @@ end
 -- @param resetAfterCombatCheckbox The reset checkbox widget
 function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, resetAfterCombatCheckbox)
     if InCombatLockdown() then
-        print(CSL.COLORS.ERROR .. "Cannot save rotations while in combat. Try again after combat.|r")
+        print(CSL.COLORS.ERROR .. CSL.L["Cannot save rotations while in combat. Try again after combat."] .. "|r")
         return
     end
 
@@ -894,7 +894,7 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
 
     CSL:CreateOrUpdateMacro(rotation)
 
-    print(CSL.COLORS.SUCCESS .. "Rotation '" .. rotationName .. "' saved!|r")
+    print(CSL.COLORS.SUCCESS .. string.format(CSL.L["Rotation '%s' saved!"], rotationName) .. "|r")
 
     self:RefreshRotationList()
     self:ShowRotationEditor(rotationName)
@@ -903,7 +903,7 @@ end
 --- Delete rotation (shows confirmation dialog)
 function CSL.UIManager:DeleteRotation()
     if InCombatLockdown() then
-        print(CSL.COLORS.ERROR .. "Cannot delete rotations while in combat. Try again after combat.|r")
+        print(CSL.COLORS.ERROR .. CSL.L["Cannot delete rotations while in combat. Try again after combat."] .. "|r")
         return
     end
 
@@ -950,7 +950,7 @@ function CSL.UIManager:OnCombatStart()
         frame.escFrame:Hide()
     end
     frame:Hide()
-    print(CSL.COLORS.WARNING .. "CastSequenceLite hidden during combat. It will return after combat ends.|r")
+    print(CSL.COLORS.WARNING .. CSL.L["CastSequenceLite hidden during combat. It will return after combat ends."] .. "|r")
 end
 
 --- Handle combat end - reset rotations and restore UI if needed

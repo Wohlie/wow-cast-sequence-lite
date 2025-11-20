@@ -6,9 +6,11 @@
 
 Lib\Ace3\LibStub\LibStub.lua
 Lib\Ace3\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Lib\Ace3\AceLocale-3.0\AceLocale-3.0.xml
 Lib\Ace3\AceGUI-3.0\AceGUI-3.0.xml
 Lib\Ace3\AceConfig-3.0\AceConfig-3.0.xml
 
+CastSequenceLite_Locales.lua
 CastSequenceLite_Helpers.lua
 CastSequenceLite_UI_Ace.lua
 CastSequenceLite.lua

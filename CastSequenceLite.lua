@@ -115,7 +115,7 @@ function CSL:DeleteRotation(rotationName)
     local macroIndex = GetMacroIndexByName(rotationName)
     if macroIndex > 0 then
         DeleteMacro(macroIndex)
-        print(CSL.COLORS.SUCCESS .. "Macro '" .. rotationName .. "' deleted!|r")
+        print(CSL.COLORS.SUCCESS .. string.format(CSL.L["Macro '%s' deleted!"], rotationName) .. "|r")
     end
 
     -- Cleanup button
@@ -304,7 +304,7 @@ function CSL:CreateOrUpdateMacro(rotation)
         if numCharacterMacros < self.MAX_CHARACTER_MACROS then
             CreateMacro(rotation.name, 1, macroBody, 1)
         else
-            print(CSL.COLORS.ERROR .. "Too many macros! Delete some and /reload|r")
+            print(CSL.COLORS.ERROR .. CSL.L["Too many macros! Delete some and /reload"] .. "|r")
         end
     else
         -- Update existing macro
@@ -322,7 +322,7 @@ function CSL:RegisterSlashCommands()
     SLASH_CASTSEQLITE1 = "/csl"
     SlashCmdList["CASTSEQLITE"] = function(msg)
         if InCombatLockdown() then
-            print(CSL.COLORS.ERROR .. "Cannot open during combat|r")
+            print(CSL.COLORS.ERROR .. CSL.L["Cannot open during combat"] .. "|r")
             return
         end
         CSL.UIManager:ToggleManagementFrame()
@@ -332,7 +332,7 @@ end
 --- Print welcome message (only once)
 function CSL:PrintWelcome()
     if not self.welcomeShown then
-        print(CSL.COLORS.SUCCESS .. "CastSequenceLite v" .. self.VERSION .. " loaded!|r Type /csl to open")
+        print(CSL.COLORS.SUCCESS .. string.format(CSL.L["CastSequenceLite v%s loaded!|r Type /csl to open"], self.VERSION))
         self.welcomeShown = true
     end
 end
