@@ -973,8 +973,7 @@ end
 
 --- Handle combat end - reset rotations and restore UI if needed
 function CSL.UIManager:OnCombatEnd()
-    -- Reset rotation steps for rotations with resetAfterCombat enabled
-    self:ResetRotationsAfterCombat()
+    -- Rotations are reset automatically by the event handler in CastSequenceLite.lua
 
     local frame = self.ManagementFrame
     if not frame or not frame._restoreAfterCombat then
@@ -990,16 +989,6 @@ function CSL.UIManager:OnCombatEnd()
     self:RefreshRotationList()
     if frame.activeRotation then
         self:SetActiveRotationRow(frame.activeRotation)
-    end
-end
-
---- Reset rotations that have resetAfterCombat enabled
-function CSL.UIManager:ResetRotationsAfterCombat()
-    for _, rotation in pairs(CSL.Rotations) do
-        if rotation.resetAfterCombat and rotation.button then
-            rotation.button:SetAttribute("step", 1)
-            CSL:CreateOrUpdateMacro(rotation)
-        end
     end
 end
 

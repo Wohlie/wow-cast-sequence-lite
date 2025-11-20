@@ -262,41 +262,65 @@ function CSL:SetupSecureClickHandler(rotation, button)
         local shouldExecute = true
         
         if autoSelectTarget == "never" then
-             -- Never auto select: Require target always
-             if SecureCmdOptionParse("[@target,exists] 1; 0") == "0" then
-                 shouldExecute = false
-             end
+             if SecureCmdOptionParse("[@target,exists] 1; 0") == "0" then shouldExecute = false end
         elseif autoSelectTarget == "combat" or autoSelectTarget == nil then
-             -- In Combat (Default): Require target ONLY when out of combat
-             if SecureCmdOptionParse("[combat] 1; [@target,exists] 1; 0") == "0" then
-                 shouldExecute = false
-             end
+             if SecureCmdOptionParse("[combat] 1; [@target,exists] 1; 0") == "0" then shouldExecute = false end
         end
-        -- "always" falls through (shouldExecute remains true)
 
         if not shouldExecute then
              self:SetAttribute('macrotext', "")
              return
         end
         
-        local castCommand = self:GetAttribute('castCommand' .. step)
-        local preCastText = self:GetAttribute('preCastText')
+        -- Find the next valid cast command (skipping failed conditionals)
+        local foundValidCommand = false
+        local startStep = step
         
-        if castCommand then
-            local text = "#showtooltip"
-            if preCastText and preCastText ~= "" then
-                text = text .. "\n" .. preCastText
+        for i = 1, numCastCommands do
+            local castCommand = self:GetAttribute('castCommand' .. step)
+            
+            -- Check if the command's conditionals pass
+            -- We append " 1; 0" to the command to turn it into a boolean check for SecureCmdOptionParse
+            -- But SecureCmdOptionParse parses the whole command line. 
+            -- If castCommand is "/cast [combat] Spell", parsing it directly returns "Spell" if true, or nil if false.
+            
+            if castCommand then
+                local targetCmd = castCommand:gsub("^/cast%s*", ""):gsub("^/use%s*", "")
+                local parsed = SecureCmdOptionParse(targetCmd)
+                
+                if parsed then
+                    -- Conditionals passed! Use this command.
+                    foundValidCommand = true
+                    
+                    local preCastText = self:GetAttribute('preCastText')
+                    local text = "#showtooltip"
+                    if preCastText and preCastText ~= "" then
+                        text = text .. "\n" .. preCastText
+                    end
+                    text = text .. "\n" .. castCommand
+                    self:SetAttribute('macrotext', text)
+                    
+                    -- Prepare step for NEXT click
+                    step = step + 1
+                    if step > numCastCommands then step = 1 end
+                    self:SetAttribute('step', step)
+                    break
+                end
             end
-            text = text .. "\n" .. castCommand
-            self:SetAttribute('macrotext', text)
+            
+            -- Move to next step to check
+            step = step + 1
+            if step > numCastCommands then step = 1 end
         end
         
-        -- Increment step for NEXT click
-        step = step + 1
-        if step > numCastCommands then
-            step = 1
+        -- If we looped through everything and found nothing valid, do nothing (or reset)
+        if not foundValidCommand then
+            self:SetAttribute('macrotext', "")
+            -- We don't update 'step' here so we retry from the same spot next time, 
+            -- or we could reset to 1. Leaving it at the last checked step is usually safe.
+            -- However, to avoid getting stuck if the user changes context, let's reset to startStep
+            self:SetAttribute('step', startStep)
         end
-        self:SetAttribute('step', step)
     ]]
 
     button:WrapScript(button, "OnClick", secureCode)
@@ -333,10 +357,39 @@ function CSL:UpdateMacroSpell(button)
     end
 
     local currentStep = button:GetAttribute("step") or 1
-    local currentCastCommand = button:GetAttribute("castCommand" .. currentStep)
+    local numCastCommands = button:GetAttribute("numCastCommands") or #rotation.castCommands
 
-    if currentCastCommand then
-        local spellName = CSL.Helpers.GetSpellName(currentCastCommand)
+    -- Find the next valid cast command (simulating the secure handler logic)
+    local validCastCommand = nil
+    local step = currentStep
+
+    for i = 1, numCastCommands do
+        local castCommand = button:GetAttribute("castCommand" .. step)
+
+        if castCommand then
+            -- Strip /cast or /use to get just the conditionals and spell
+            local targetCmd = castCommand:gsub("^/cast%s*", ""):gsub("^/use%s*", "")
+            -- Check if the command's conditionals pass
+            if SecureCmdOptionParse(targetCmd) then
+                validCastCommand = castCommand
+                break
+            end
+        end
+
+        -- Move to next step
+        step = step + 1
+        if step > numCastCommands then
+            step = 1
+        end
+    end
+
+    -- If no valid command found (loop failed), fallback to current step
+    if not validCastCommand then
+        validCastCommand = button:GetAttribute("castCommand" .. currentStep)
+    end
+
+    if validCastCommand then
+        local spellName = CSL.Helpers.GetSpellName(validCastCommand)
         SetMacroSpell(button.macroName, spellName)
     end
 end
@@ -388,8 +441,28 @@ end
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
+eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED") -- Enter combat
+eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")  -- Leave combat
 eventFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then
         CSL:Initialize()
+    elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+        -- Reset rotations if leaving combat
+        if event == "PLAYER_REGEN_ENABLED" then
+            for _, rotation in pairs(CSL.Rotations) do
+                if rotation.resetAfterCombat and rotation.button then
+                    rotation.button:SetAttribute("step", 1)
+                end
+            end
+        end
+
+        -- Update all macro icons when combat state changes
+        if CSL.Rotations then
+            for _, rotation in pairs(CSL.Rotations) do
+                if rotation.button then
+                    CSL:UpdateMacroSpell(rotation.button)
+                end
+            end
+        end
     end
 end)
