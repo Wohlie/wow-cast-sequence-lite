@@ -294,6 +294,12 @@ function CSL:SetupSecureClickHandler(rotation, button)
                     
                     local preCastText = self:GetAttribute('preCastText')
                     local text = "#showtooltip"
+                    
+                    -- Auto-clear dead targets if auto-selection is allowed
+                    if autoSelectTarget == "always" or (autoSelectTarget == "combat" and SecureCmdOptionParse("[combat] 1; 0") == "1") then
+                         text = text .. "\n/cleartarget [dead]"
+                    end
+
                     if preCastText and preCastText ~= "" then
                         text = text .. "\n" .. preCastText
                     end
