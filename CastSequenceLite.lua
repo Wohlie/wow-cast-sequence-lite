@@ -92,7 +92,17 @@ function CSL:InitializeRotation(rotationName, rotationConfig)
     rotation.preCastCommands = rotationConfig.preCastCommands and { unpack(rotationConfig.preCastCommands) } or {}
     rotation.castCommands = { unpack(rotationConfig.castCommands) }
     rotation.currentStep = 1
-    rotation.resetAfterCombat = rotationConfig.resetAfterCombat or false
+
+    -- Migration: Convert resetAfterCombat boolean to string (yes/no)
+    if type(rotationConfig.resetAfterCombat) == "boolean" then
+        if rotationConfig.resetAfterCombat then
+            rotation.resetAfterCombat = "yes"
+        else
+            rotation.resetAfterCombat = "no"
+        end
+    else
+        rotation.resetAfterCombat = rotationConfig.resetAfterCombat or "no"
+    end
     
     -- Migration: Convert old requireTarget boolean to autoSelectTarget
     if rotationConfig.autoSelectTarget then
@@ -456,7 +466,7 @@ eventFrame:SetScript("OnEvent", function(self, event)
         -- Reset rotations if leaving combat
         if event == "PLAYER_REGEN_ENABLED" then
             for _, rotation in pairs(CSL.Rotations) do
-                if rotation.resetAfterCombat and rotation.button then
+                if rotation.resetAfterCombat == "yes" and rotation.button then
                     rotation.button:SetAttribute("step", 1)
                 end
             end
