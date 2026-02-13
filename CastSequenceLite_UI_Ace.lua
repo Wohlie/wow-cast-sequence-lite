@@ -426,9 +426,8 @@ function CSL.UIManager:ShowRotationEditor(rotationName)
     end
 
     -- Also adjust after layout completes
-    local adjustFrame = CreateFrame("Frame")
-    adjustFrame:SetScript("OnUpdate", function(self)
-        self:SetScript("OnUpdate", nil)  -- Run only once
+    frame.frame:SetScript("OnUpdate", function(self)
+        self:SetScript("OnUpdate", nil)  -- Run only once, then clear
         adjustLayout()
     end)
 
