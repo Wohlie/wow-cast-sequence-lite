@@ -692,6 +692,23 @@ function CSL.UIManager:AddRotationListRow(parent, rotationName)
     end
 end
 
+--- Create a drag handler that picks up the macro for a rotation
+-- @param rotationName The rotation name to look up the macro for
+-- @return A function suitable for OnDragStart
+function CSL.UIManager:CreateDragHandler(rotationName)
+    return function()
+        local macroIdx = GetMacroIndexByName(rotationName)
+        if not macroIdx or macroIdx == 0 then
+            local rotation = CSL.Rotations[rotationName]
+            if rotation then CSL:CreateOrUpdateMacro(rotation) end
+            macroIdx = GetMacroIndexByName(rotationName)
+        end
+        if macroIdx and macroIdx > 0 then
+            PickupMacro(macroIdx)
+        end
+    end
+end
+
 function CSL.UIManager:CreateRotationListDragButton(rotationName, container)
     if not container or not container.frame then
         return
@@ -726,17 +743,7 @@ function CSL.UIManager:CreateRotationListDragButton(rotationName, container)
     button.icon = icon
 
     button:RegisterForDrag("LeftButton")
-    button:SetScript("OnDragStart", function()
-        local macroIdx = GetMacroIndexByName(rotationName)
-        if not macroIdx or macroIdx == 0 then
-            CSL:CreateOrUpdateMacro(rotation)
-            macroIdx = GetMacroIndexByName(rotationName)
-        end
-
-        if macroIdx and macroIdx > 0 then
-            PickupMacro(macroIdx)
-        end
-    end)
+    button:SetScript("OnDragStart", self:CreateDragHandler(rotationName))
 
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -787,16 +794,7 @@ function CSL.UIManager:UpdateButtonPreview(rotationName, container)
 
     button:RegisterForDrag("LeftButton")
     button:SetScript("OnDragStart", function()
-        local macroIdx = GetMacroIndexByName(rotationName)
-        if not macroIdx or macroIdx == 0 then
-            CSL:CreateOrUpdateMacro(rotation)
-            macroIdx = GetMacroIndexByName(rotationName)
-        end
-
-        if macroIdx and macroIdx > 0 then
-            PickupMacro(macroIdx)
-        end
-
+        self:CreateDragHandler(rotationName)()
         local managementFrame = CSL.UIManager.ManagementFrame
         if managementFrame and managementFrame.frame then
             managementFrame.frame:EnableMouse(false)
