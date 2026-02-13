@@ -155,6 +155,7 @@ end
 --- Initialize the addon
 function CSL:Initialize()
     local db = self:GetDatabase()
+    self.Migrations:Run(db)
 
     -- Initialize all rotations and create UI elements
     for rotationName, rotationConfig in pairs(db.rotations) do
