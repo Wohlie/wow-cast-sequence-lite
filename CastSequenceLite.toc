@@ -1,7 +1,7 @@
 ## Interface: 30300
-## Title: CastSequenceLite
+## Title: |cffffffffC|rast|cffffffffS|requence|cffffffffL|rite
 ## Author: Wohlie
-## Version: 1.0.0
+## Notes: Lightweight cast sequence rotation manager
 ## SavedVariablesPerCharacter: CastSequenceLiteDB
 
 Lib\Ace3\LibStub\LibStub.lua
