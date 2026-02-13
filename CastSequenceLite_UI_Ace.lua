@@ -215,7 +215,6 @@ function CSL.UIManager:CreateManagementFrame()
 
     self.ManagementFrame = frame
     self:RefreshRotationList()
-    self:RegisterCombatWatcher()
 
     frame.frame:Hide()
     return frame
@@ -876,8 +875,6 @@ function CSL.UIManager:SaveRotation(nameInput, preCastInput, commandsInput, rese
         return
     end
 
-    self:RegisterCombatWatcher()
-
     local rotationName = nameInput:GetText():trim()
     local editorGroup = self.ManagementFrame.editorGroup
     self:ClearEditorErrors(editorGroup)
@@ -938,26 +935,6 @@ function CSL.UIManager:DeleteRotation()
     if rotationName then
         StaticPopup_Show("CSL_CONFIRM_DELETE", rotationName, nil, rotationName)
     end
-end
-
---- Register combat event watcher
-function CSL.UIManager:RegisterCombatWatcher()
-    if self._combatWatcher then
-        return
-    end
-
-    local watcher = CreateFrame("Frame")
-    watcher:RegisterEvent("PLAYER_REGEN_DISABLED")
-    watcher:RegisterEvent("PLAYER_REGEN_ENABLED")
-    watcher:SetScript("OnEvent", function(_, event)
-        if event == "PLAYER_REGEN_DISABLED" then
-            CSL.UIManager:OnCombatStart()
-        else
-            CSL.UIManager:OnCombatEnd()
-        end
-    end)
-
-    self._combatWatcher = watcher
 end
 
 --- Handle combat start - hide UI and mark for restoration

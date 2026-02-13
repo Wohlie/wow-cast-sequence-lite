@@ -103,7 +103,7 @@ function CSL:InitializeRotation(rotationName, rotationConfig)
     else
         rotation.resetAfterCombat = rotationConfig.resetAfterCombat or "no"
     end
-    
+
     -- Migration: Convert old requireTarget boolean to autoSelectTarget
     if rotationConfig.autoSelectTarget then
         rotation.autoSelectTarget = rotationConfig.autoSelectTarget
@@ -164,7 +164,7 @@ function CSL:Initialize()
     end
 
     self:RegisterSlashCommands()
-    CSL.UIManager:RegisterCombatWatcher()
+
     self:PrintWelcome()
 end
 
@@ -285,26 +285,26 @@ function CSL:SetupSecureClickHandler(rotation, button)
         -- Find the next valid cast command (skipping failed conditionals)
         local foundValidCommand = false
         local startStep = step
-        
+
         for i = 1, numCastCommands do
             local castCommand = self:GetAttribute('castCommand' .. step)
-            
+
             -- Check if the command's conditionals pass
             -- We append " 1; 0" to the command to turn it into a boolean check for SecureCmdOptionParse
-            -- But SecureCmdOptionParse parses the whole command line. 
+            -- But SecureCmdOptionParse parses the whole command line.
             -- If castCommand is "/cast [combat] Spell", parsing it directly returns "Spell" if true, or nil if false.
-            
+
             if castCommand then
                 local targetCmd = castCommand:gsub("^/cast%s*", ""):gsub("^/use%s*", "")
                 local parsed = SecureCmdOptionParse(targetCmd)
-                
+
                 if parsed then
                     -- Conditionals passed! Use this command.
                     foundValidCommand = true
-                    
+
                     local preCastText = self:GetAttribute('preCastText')
                     local text = "#showtooltip"
-                    
+
                     -- Auto-clear dead targets if auto-selection is allowed
                     if autoSelectTarget == "always" or (autoSelectTarget == "combat" and SecureCmdOptionParse("[combat] 1; 0") == "1") then
                          text = text .. "\n/cleartarget [dead]"
@@ -315,7 +315,7 @@ function CSL:SetupSecureClickHandler(rotation, button)
                     end
                     text = text .. "\n" .. castCommand
                     self:SetAttribute('macrotext', text)
-                    
+
                     -- Prepare step for NEXT click
                     step = step + 1
                     if step > numCastCommands then step = 1 end
@@ -323,16 +323,16 @@ function CSL:SetupSecureClickHandler(rotation, button)
                     break
                 end
             end
-            
+
             -- Move to next step to check
             step = step + 1
             if step > numCastCommands then step = 1 end
         end
-        
+
         -- If we looped through everything and found nothing valid, do nothing (or reset)
         if not foundValidCommand then
             self:SetAttribute('macrotext', "")
-            -- We don't update 'step' here so we retry from the same spot next time, 
+            -- We don't update 'step' here so we retry from the same spot next time,
             -- or we could reset to 1. Leaving it at the last checked step is usually safe.
             -- However, to avoid getting stuck if the user changes context, let's reset to startStep
             self:SetAttribute('step', startStep)
@@ -463,8 +463,12 @@ eventFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_LOGIN" then
         CSL:Initialize()
     elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
-        -- Reset rotations if leaving combat
-        if event == "PLAYER_REGEN_ENABLED" then
+        if event == "PLAYER_REGEN_DISABLED" then
+            CSL.UIManager:OnCombatStart()
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            CSL.UIManager:OnCombatEnd()
+
+            -- Reset rotations if leaving combat
             for _, rotation in pairs(CSL.Rotations) do
                 if rotation.resetAfterCombat == "yes" and rotation.button then
                     rotation.button:SetAttribute("step", 1)
