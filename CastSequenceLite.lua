@@ -42,7 +42,6 @@ CSL.COLORS = {
 CSL.Rotations = {} -- Runtime state for all rotations (keyed by rotation name)
 CSL.DB = nil -- Saved variable namespace (per-character database populated at runtime)
 
-
 --- Get or initialize the addon database
 -- @return The database table
 function CSL:GetDatabase()
@@ -61,7 +60,6 @@ function CSL:SaveRotationConfig(rotationName, rotationConfig)
     local db = self:GetDatabase()
     db.rotations[rotationName] = CSL.Helpers.CopyRotationConfig(rotationConfig)
 end
-
 
 --- Find a rotation by name (case-insensitive)
 -- @param rotationName The rotation name to search for
@@ -168,7 +166,6 @@ function CSL:Initialize()
 
     self:PrintWelcome()
 end
-
 
 --- Create the main sequence button for a rotation
 -- @param rotation The rotation object
@@ -349,8 +346,6 @@ end
 function CSL:BuildMacroText(rotation)
     return "#showtooltip\n/click CSLButton_" .. rotation.name
 end
-
-
 
 --- Update macro spell icon (combat-safe)
 -- @param button The button frame

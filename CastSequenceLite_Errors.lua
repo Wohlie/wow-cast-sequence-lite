@@ -14,7 +14,6 @@ CSL.Error.originalUIErrorsFrameAddMessage = nil
 -- Frame for processing error release queue
 CSL.Error.releaseFrame = CSL.Error.releaseFrame or CreateFrame("Frame")
 
-
 --- Process the error release queue (internal)
 -- @param frame The update frame
 -- @param elapsed Time elapsed since last update
