@@ -349,16 +349,7 @@ function CSL:BuildMacroText(rotation)
     return "#showtooltip\n/click CSLButton_" .. rotation.name
 end
 
---- Get macro text template for secure handler
--- @param rotation The rotation object
--- @return The macro text template string
-function CSL:GetMacroTextTemplate(rotation)
-    local template = "#showtooltip"
-    for _, preCastCommand in ipairs(rotation.preCastCommands or {}) do
-        template = template .. "\\n" .. preCastCommand
-    end
-    return template .. "\\n\" .. castCommand .. \""
-end
+
 
 --- Update macro spell icon (combat-safe)
 -- @param button The button frame
