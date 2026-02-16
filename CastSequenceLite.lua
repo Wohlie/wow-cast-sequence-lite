@@ -141,6 +141,9 @@ function CSL:DeleteRotation(rotationName)
 
     -- Cleanup button
     if rotation.button then
+        if ClearOverrideBindings then
+            ClearOverrideBindings(rotation.button)
+        end
         rotation.button:Hide()
         rotation.button:SetParent(nil)
     end
@@ -199,12 +202,10 @@ end
 --- Setup button click scripts for error suppression
 -- @param button The button frame
 function CSL:SetupButtonScripts(button)
-    -- Suppress UI errors during rotation clicks only
-    button:SetScript("PreClick", function()
+    button:HookScript("PreClick", function()
         CSL.Error:BeginErrorSuppression()
     end)
-
-    button:SetScript("PostClick", function(self)
+    button:HookScript("PostClick", function(self)
         CSL:UpdateMacroSpell(self)
         CSL.Error:EndErrorSuppression()
     end)
@@ -344,7 +345,96 @@ end
 -- @param rotation The rotation object
 -- @return The macro text string
 function CSL:BuildMacroText(rotation)
-    return "#showtooltip\n/click CSLButton_" .. rotation.name
+    local suffix = ""
+    if GetCVar and GetCVar("ActionButtonUseKeyDown") == "1" then
+        suffix = " LeftButton t"
+    end
+    return "#showtooltip\n/click CSLButton_" .. rotation.name .. suffix
+end
+
+--- Update all macro stubs to match current CVar setting
+function CSL:UpdateAllMacroStubs()
+    if not self.Rotations then
+        return
+    end
+
+    for _, rotation in pairs(self.Rotations) do
+        self:CreateOrUpdateMacro(rotation)
+    end
+end
+
+--- Get all possible keybinding command names for an action slot
+-- @param slot The action slot (1-180)
+-- @return Table of binding command names to try
+function CSL:GetAllBindingsForSlot(slot)
+    local result = {}
+    local pos = ((slot - 1) % 12) + 1
+    table.insert(result, "ACTIONBUTTON" .. pos)
+
+    if slot >= 25 and slot <= 36 then
+        table.insert(result, "MULTIACTIONBAR3BUTTON" .. (slot - 24))
+    elseif slot >= 37 and slot <= 48 then
+        table.insert(result, "MULTIACTIONBAR4BUTTON" .. (slot - 36))
+    elseif slot >= 49 and slot <= 60 then
+        table.insert(result, "MULTIACTIONBAR2BUTTON" .. (slot - 48))
+    elseif slot >= 61 and slot <= 72 then
+        table.insert(result, "MULTIACTIONBAR1BUTTON" .. (slot - 60))
+    elseif slot >= 73 and slot <= 84 then
+        table.insert(result, "MULTIACTIONBAR5BUTTON" .. (slot - 72))
+    elseif slot >= 85 and slot <= 96 then
+        table.insert(result, "MULTIACTIONBAR6BUTTON" .. (slot - 84))
+    elseif slot >= 97 and slot <= 108 then
+        table.insert(result, "MULTIACTIONBAR7BUTTON" .. (slot - 96))
+    elseif slot >= 109 and slot <= 120 then
+        table.insert(result, "MULTIACTIONBAR8BUTTON" .. (slot - 108))
+    end
+    return result
+end
+
+--- Set up override bindings so keypresses go directly to our buttons
+-- On official clients, /click from macros doesn't work. Instead we detect
+-- which actionbar slot has our macro and override that slot's keybind
+-- to directly click our hidden CSLButton.
+function CSL:SetupOverrideBindings()
+    if not CSL.Compat.IsClickRestricted then
+        return
+    end
+
+    if not self.Rotations then
+        return
+    end
+
+    if InCombatLockdown() then
+        self._pendingBindingUpdate = true
+        return
+    end
+
+    for _, rotation in pairs(self.Rotations) do
+        if rotation.button then
+            ClearOverrideBindings(rotation.button)
+        end
+    end
+
+    for slot = 1, 180 do
+        local actionType, id = GetActionInfo(slot)
+        if actionType == "macro" then
+            local name = GetMacroInfo(id)
+            local rotation = name and self.Rotations[name]
+            if rotation and rotation.button then
+                local bindingCmds = self:GetAllBindingsForSlot(slot)
+                for _, bindingCmd in ipairs(bindingCmds) do
+                    local key1, key2 = GetBindingKey(bindingCmd)
+                    if key1 then
+                        SetOverrideBindingClick(rotation.button, true, key1, rotation.button:GetName(), "LeftButton")
+                    end
+
+                    if key2 then
+                        SetOverrideBindingClick(rotation.button, true, key2, rotation.button:GetName(), "LeftButton")
+                    end
+                end
+            end
+        end
+    end
 end
 
 --- Update macro spell icon (combat-safe)
@@ -407,7 +497,7 @@ function CSL:CreateOrUpdateMacro(rotation)
         -- Create new macro
         local _, numCharacterMacros = GetNumMacros()
         if numCharacterMacros < self.MAX_CHARACTER_MACROS then
-            CreateMacro(rotation.name, 1, macroBody, 1)
+            CreateMacro(rotation.name, "INV_Misc_QuestionMark", macroBody, 1)
         else
             print(CSL.COLORS.ERROR .. CSL.L["Too many macros! Delete some and /reload"] .. "|r")
         end
@@ -446,14 +536,42 @@ local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED") -- Enter combat
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")  -- Leave combat
-eventFrame:SetScript("OnEvent", function(self, event)
+
+if CSL.Compat.hasKeyDownSupport then
+    eventFrame:RegisterEvent("CVAR_UPDATE")
+end
+
+if CSL.Compat.IsClickRestricted then
+    eventFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+    eventFrame:RegisterEvent("UPDATE_BINDINGS")
+end
+
+eventFrame:SetScript("OnEvent", function(self, event, arg1)
     if event == "PLAYER_LOGIN" then
         CSL:Initialize()
+        if CSL.Compat.IsClickRestricted then
+            C_Timer.After(1, function()
+                CSL:SetupOverrideBindings()
+            end)
+        end
+    elseif event == "CVAR_UPDATE" then
+        if arg1 == "ActionButtonUseKeyDown" then
+            CSL.CombatQueue:Add("UpdateAllMacroStubs", function()
+                CSL:UpdateAllMacroStubs()
+            end)
+        end
+    elseif event == "ACTIONBAR_SLOT_CHANGED" or event == "UPDATE_BINDINGS" then
+        if CSL.Compat.IsClickRestricted then
+            CSL.CombatQueue:Add("SetupOverrideBindings", function()
+                CSL:SetupOverrideBindings()
+            end)
+        end
     elseif event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
         if event == "PLAYER_REGEN_DISABLED" then
             CSL.UIManager:OnCombatStart()
         elseif event == "PLAYER_REGEN_ENABLED" then
             CSL.UIManager:OnCombatEnd()
+            CSL.CombatQueue:Flush()
 
             -- Reset rotations if leaving combat
             for _, rotation in pairs(CSL.Rotations) do

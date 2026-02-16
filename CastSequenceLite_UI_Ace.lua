@@ -5,7 +5,6 @@ CSL.UIManager = CSL.UIManager or {}
 -- Dependencies
 local AceGUI = LibStub("AceGUI-3.0")
 
-local ERROR_SOUND_ID = "igQuestFailed"
 local ESC_FRAME_NAME = "CSLManagementFrame"
 
 StaticPopupDialogs["CSL_CONFIRM_DELETE"] = {
@@ -48,7 +47,7 @@ function CSL.UIManager:SetEditorError(editorGroup, field, message)
     if errorLabel then
         local shouldPlaySound = not editorGroup._errorSoundPlayed and formatted ~= ""
         if shouldPlaySound then
-            PlaySound(ERROR_SOUND_ID)
+            PlaySound(847)
             editorGroup._errorSoundPlayed = true
         end
         errorLabel:SetText(formatted)
@@ -103,10 +102,31 @@ function CSL.UIManager:GetNextEnabledInput(inputWidgets, currentWidget, reverse)
     return nil
 end
 
+--- Safely clear a row frame's backdrop (no-op if BackdropTemplate mixin not applied)
+-- @param rowFrame The row frame to clear
+function CSL.UIManager:ClearRowBackdrop(rowFrame)
+    if not rowFrame then
+        return
+    end
+    if rowFrame._cslBackdropReady or not CSL.Compat.NeedsBackdropTemplate() then
+        rowFrame:SetBackdrop(nil)
+    end
+end
+
 --- Ensure a row frame has the proper backdrop
 -- @param rowFrame The row frame to style
 function CSL.UIManager:EnsureRowBackdrop(rowFrame)
-    if not rowFrame or rowFrame:GetBackdrop() then
+    if not rowFrame then
+        return
+    end
+
+    -- In 9.0+ SetBackdrop requires BackdropTemplateMixin on the frame
+    if CSL.Compat.NeedsBackdropTemplate() and not rowFrame._cslBackdropReady then
+        Mixin(rowFrame, BackdropTemplateMixin)
+        rowFrame._cslBackdropReady = true
+    end
+
+    if rowFrame.GetBackdrop and rowFrame:GetBackdrop() then
         return
     end
 
@@ -145,12 +165,12 @@ function CSL.UIManager:SetActiveRotationRow(rotationName)
                 rowFrame:SetBackdropBorderColor(border.r, border.g, border.b)
             else
                 -- Remove backdrop when row is not active
-                rowFrame:SetBackdrop(nil)
+                self:ClearRowBackdrop(rowFrame)
             end
 
             -- Also ensure dragContainer doesn't have a backdrop
             if rowData.dragContainer and rowData.dragContainer.frame then
-                rowData.dragContainer.frame:SetBackdrop(nil)
+                self:ClearRowBackdrop(rowData.dragContainer.frame)
             end
         end
     end
@@ -254,7 +274,45 @@ function CSL.UIManager:CreateMainContainer()
     local mainContainer = AceGUI:Create("SimpleGroup")
     mainContainer:SetFullWidth(true)
     mainContainer:SetFullHeight(true)
-    mainContainer:SetLayout("Flow")
+
+    -- Register and use a custom rigid two-column layout to prevent any wrapping or gap issues
+    -- that can occur with the default "Flow" layout and relative widths on modern Ace3 versions
+    if not AceGUI:GetLayout("CSL_TwoColumn") then
+        AceGUI:RegisterLayout("CSL_TwoColumn", function(content, children)
+            local left = children[1]
+            local right = children[2]
+            local width = content.width or content:GetWidth() or 800
+
+            if left and left.frame then
+                left.frame:ClearAllPoints()
+                left.frame:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+                left.frame:SetPoint("BOTTOMLEFT", content, "BOTTOMLEFT", 0, 0)
+                left:SetWidth(width * 0.3)
+                if left.DoLayout then
+                    left:DoLayout()
+                end
+                left.frame:Show()
+            end
+
+            if right and right.frame then
+                right.frame:ClearAllPoints()
+                right.frame:SetPoint("TOPLEFT", content, "TOPLEFT", width * 0.3, 0)
+                right.frame:SetPoint("BOTTOMRIGHT", content, "BOTTOMRIGHT", 0, 0)
+                right:SetWidth(width * 0.7)
+                if right.DoLayout then
+                    right:DoLayout()
+                end
+                right.frame:Show()
+            end
+
+            if content.obj.LayoutFinished then
+                local height = content:GetHeight() or 0
+                content.obj:LayoutFinished(nil, height)
+            end
+        end)
+    end
+
+    mainContainer:SetLayout("CSL_TwoColumn")
     return mainContainer
 end
 
@@ -316,10 +374,10 @@ function CSL.UIManager:RefreshRotationList()
     if frame.rotationRows then
         for name, rowData in pairs(frame.rotationRows) do
             if rowData.group and rowData.group.frame then
-                rowData.group.frame:SetBackdrop(nil)
+                self:ClearRowBackdrop(rowData.group.frame)
             end
             if rowData.dragContainer and rowData.dragContainer.frame then
-                rowData.dragContainer.frame:SetBackdrop(nil)
+                self:ClearRowBackdrop(rowData.dragContainer.frame)
             end
         end
     end
@@ -700,7 +758,9 @@ function CSL.UIManager:CreateDragHandler(rotationName)
         local macroIdx = GetMacroIndexByName(rotationName)
         if not macroIdx or macroIdx == 0 then
             local rotation = CSL.Rotations[rotationName]
-            if rotation then CSL:CreateOrUpdateMacro(rotation) end
+            if rotation then
+                CSL:CreateOrUpdateMacro(rotation)
+            end
             macroIdx = GetMacroIndexByName(rotationName)
         end
         if macroIdx and macroIdx > 0 then

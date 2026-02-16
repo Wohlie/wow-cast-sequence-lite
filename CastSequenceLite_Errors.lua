@@ -32,12 +32,23 @@ function CSL.Error.ProcessErrorReleaseQueue(frame, elapsed)
         if CSL.Error.depth <= 0 then
             CSL.Error.depth = 0
             CSL.Error.hide = false
+
+            if CSL.Error.originalErrorSpeech then
+                SetCVar("Sound_EnableErrorSpeech", CSL.Error.originalErrorSpeech)
+                CSL.Error.originalErrorSpeech = nil
+            end
         end
     end
 end
 
 --- Begin suppressing UI error messages
 function CSL.Error:BeginErrorSuppression()
+    if self.depth == 0 then
+        self.originalErrorSpeech = GetCVar("Sound_EnableErrorSpeech")
+        if self.originalErrorSpeech then
+            SetCVar("Sound_EnableErrorSpeech", 0)
+        end
+    end
     self.depth = self.depth + 1
     self.hide = true
 end

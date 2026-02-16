@@ -59,7 +59,7 @@ function CSL.Helpers.GetIconForSpell(castCommand)
     local cache = CSL.Helpers.IconCache
     if not cache[castCommand] then
         local spellName = CSL.Helpers.GetSpellName(castCommand)
-        local _, _, iconTexture = GetSpellInfo(spellName)
+        local iconTexture = CSL.Compat.GetSpellIcon(spellName)
         cache[castCommand] = iconTexture or CSL.Helpers.DEFAULT_ICON
     end
 

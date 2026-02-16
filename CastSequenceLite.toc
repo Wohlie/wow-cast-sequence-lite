@@ -1,9 +1,15 @@
 ## Interface: 30300
+## Interface-Retail: 110100
+## Interface-Classic: 11508
+## Interface-BCC: 20504
+## Interface-Wrath: 30403
+## Interface-Cata: 40402
 ## Title: |cffffffffC|rast|cffffffffS|requence|cffffffffL|rite
 ## Author: Wohlie
 ## Notes: Lightweight cast sequence rotation manager
 ## SavedVariablesPerCharacter: CastSequenceLiteDB
 
+CastSequenceLite_PreLoad.lua
 Lib\Ace3\LibStub\LibStub.lua
 Lib\Ace3\CallbackHandler-1.0\CallbackHandler-1.0.xml
 Lib\Ace3\AceLocale-3.0\AceLocale-3.0.xml
@@ -11,8 +17,10 @@ Lib\Ace3\AceGUI-3.0\AceGUI-3.0.xml
 Lib\Ace3\AceConfig-3.0\AceConfig-3.0.xml
 
 CastSequenceLite_Locales.lua
+CastSequenceLite_Compat.lua
 CastSequenceLite_Helpers.lua
 CastSequenceLite_Migrations.lua
+CastSequenceLite_CombatQueue.lua
 CastSequenceLite_UI_Ace.lua
 CastSequenceLite.lua
 CastSequenceLite_Errors.lua
